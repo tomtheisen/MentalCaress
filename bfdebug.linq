@@ -4,12 +4,14 @@
   <Namespace>LINQPad.Controls</Namespace>
 </Query>
 
-const string SourceKey = "source";
+const string SourceKey = "source", TapeNameKey = "names";
 void Main() {
-    //var run = Util.KeepRunning();
+//    var run = Util.KeepRunning();
+	Util.RawHtml("<style>.current{background:#8888;}</style>").Dump();
     
     var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 }.Dump("Source");
-    var stepView = new DumpContainer().Dump("Instruction Head");
+	var tapeLabels = new TextBox(Util.LoadString(TapeNameKey) ?? "").Dump("Tape Names (space separated)");
+    var stepView = new DumpContainer(){ Style = "white-space: pre;" }.Dump("Instruction Head");
     var tapeView = new DumpContainer().Dump("Tape");
     var output = new DumpContainer().Dump("Output");
 
@@ -19,14 +21,15 @@ void Main() {
     
     void Update() {
         string progDisplay = prog.GetDisplayString(true);
-        int caret = progDisplay.IndexOf('*');
-        stepView.Content = caret < 0 ? progDisplay
-            : progDisplay.Remove(caret, 1) + "\n" + "^".PadLeft(caret + 1);
-        tapeView.Content = tape.ToString();
+		progDisplay = Regex.Replace(progDisplay, @"\^(\S+)", "<span class=current>$1</span>");
+        stepView.Content = Util.RawHtml(progDisplay);
+        tapeView.Content = string.Join(' ', tapeLabels.Text.Split().Select(t => t.Length < 5 ? t.PadRight(5) : t[..5])) 
+			+ "\n" + tape.ToString();
         output.Content = io.Output;
     }
     void Load(Button? _) {
         Util.SaveString(SourceKey, source.Text);
+		Util.SaveString(TapeNameKey, tapeLabels.Text);
         tape = new();
         prog = Parse(source.Text);
         io.Reset();
@@ -145,7 +148,7 @@ record CharInstruction(string Source, int Offset, char Symbol, int Repeat = 1) :
         var result = Repeat == 1 
             ? $"{Symbol}" 
             : $"{Symbol}{{{Repeat}}}";
-        if (isCurrent) result = '*' + result;
+        if (isCurrent) result = '^' + result;
         return result;
     }
 
@@ -171,7 +174,7 @@ record Loop(string Source, int Offset, Program Body) : Instruction(Source, Offse
 
     public override string GetDisplayString(bool isCurrent) {
         return (isCurrent && !Inside)
-            ? $"*[ { Body.GetDisplayString(false) } ]"
+            ? $"^[ { Body.GetDisplayString(false) } ]"
             : $"[ { Body.GetDisplayString(isCurrent) } ]";
     }
 
@@ -201,6 +204,17 @@ record Loop(string Source, int Offset, Program Body) : Instruction(Source, Offse
     }
 }
 
+record Comment(string Source, int Offset, string Message) : Instruction(Source, Offset) {
+	public override string GetDisplayString(bool isCurrent)
+		=> isCurrent 
+			? $"\n^`{ Message }`"
+			: $"\n`{ Message }`";
+
+	public override void Run(Tape tape, ITerminal io) {}
+
+	public override bool Step(Tape tape, ITerminal io) => true;
+}
+
 Program Parse(string prog) {
     int ip = 0;
     var result = Parse(prog, ref ip);
@@ -210,7 +224,7 @@ Program Parse(string prog) {
 
 Program Parse(string prog, ref int sp) {
     List<Instruction> instr = new();
-    for (; sp < prog.Length; ) {
+    while (sp < prog.Length) {
         if (prog[sp] == '[') {
             ++sp; // [
             instr.Add(new Loop(prog, sp - 1, Parse(prog, ref sp)));
@@ -220,22 +234,28 @@ Program Parse(string prog, ref int sp) {
         }
         else if ("-+<>.,".Contains(prog[sp])) {
             char symbol = prog[sp];
-            int re = sp;
+            int end = sp;
             if (sp + 1 < prog.Length && char.IsDigit(prog[sp + 1])) {
                 // repetition modifier
                 int reps = 0;
-                while (sp + 1 < prog.Length && char.IsDigit(prog[re + 1])) {
-                    reps = reps * 10 + prog[++re] - '0';
+                while (sp + 1 < prog.Length && char.IsDigit(prog[end + 1])) {
+                    reps = reps * 10 + prog[++end] - '0';
                 }
                 instr.Add(new CharInstruction(prog, sp, symbol, reps));
             }
             else {
                 // run length
-                while (re < prog.Length && prog[re] == prog[sp]) re++;
-                instr.Add(new CharInstruction(prog, sp, symbol, re - sp));
+                while (end < prog.Length && prog[end] == prog[sp]) end++;
+                instr.Add(new CharInstruction(prog, sp, symbol, end - sp));
             }
-            sp = re;
+            sp = end;
         }
+		else if (prog[sp] == '`') {
+			int end = prog.IndexOf('`', ++sp);
+			if (end == -1) continue;
+			instr.Add(new Comment(prog, sp - 1, prog[sp..end].Trim()));
+			sp = end + 1;
+		}
         else if (prog[sp] == ']') break;
         else ++sp;
     }

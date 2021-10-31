@@ -5,13 +5,21 @@
 
 void Main() {
 	ProgramBuilder b = new();
+
 	int x = b.Allocate();
 	b.Increment(x, 20);
 	int y = b.Allocate();
 	b.Increment(y, 3);
-	
 	int div = b.Allocate();
 	b.Div(div, x, y);
+	
+	//int n = b.Allocate();
+	//b.Increment(n, 3);
+	//using (b.StartLoop(n)) {
+	//	b.Decrement(n);
+	//	int t = b.Allocate();
+	//	b.Increment(t, 48).Do('.').Decrement(t, 47);
+	//}
 	
 	b.Build().Dump();
 }
@@ -26,7 +34,7 @@ class ProgramBuilder : IDisposable {
 	const int MemorySize = 256;
 
 	private enum BlockType { Loop, If }
-	private record Block(BlockType Type, int ControlVariable);
+	private record Block(BlockType Type, int ControlVariable, List<int> UnzeroedAllocations);
 
 	private StringBuilder Program = new();
 	private int Head;
@@ -54,35 +62,42 @@ class ProgramBuilder : IDisposable {
 		return this;
 	}
 	
-	public ProgramBuilder StartLoop(int var) {
-		ControlBlocks.Push(new (BlockType.Loop, var));
-		MoveTo(var).Do('[');
-		States[var] = CellDisposition.NonZero;
+	public ProgramBuilder Comment(string comment) {
+		if (Program[Program.Length - 1] != '\n') Do('\n');
+		return Do($"`{ comment }`\n");
+	}
+	
+	public ProgramBuilder StartLoop(int condition) {
+		ControlBlocks.Push(new (BlockType.Loop, condition, new()));
+		MoveTo(condition).Do('[');
+		States[condition] = CellDisposition.NonZero;
 		return this;
 	}
 	
 	public ProgramBuilder EndLoop() {
-		var (type, var) = ControlBlocks.Pop();
+		var (type, condition, unzeroed) = ControlBlocks.Pop();
 		if (type != BlockType.Loop) throw new ($"Tried to end loop, but was actually ${type}");
-		MoveTo(var).Do(']');
-		States[var] = CellDisposition.Zero;
+		foreach (var uz in unzeroed) {
+			if (States[uz] != CellDisposition.Zero) Zero(uz);
+		}
+		MoveTo(condition).Do(']');
+		States[condition] = CellDisposition.Zero;
 		return this;
 	}
 	
 	/// <summary>if (condition) { condition = 0; </summary>
 	public ProgramBuilder StartIf(int condition) {
-		ControlBlocks.Push(new (BlockType.If, condition));
+		ControlBlocks.Push(new (BlockType.If, condition, new()));
 		MoveTo(condition).Do('[');
-		Zero(condition);
-		Locked[condition] = true;
+		Locked[condition] = false;
 		return this;
 	}
 	
 	public ProgramBuilder EndIf() {
-		var (type, var) = ControlBlocks.Pop();
+		var (type, condition, unzeroed) = ControlBlocks.Pop();
 		if (type != BlockType.If) throw new ($"Tried to end if, but was actually ${type}");
-		MoveTo(var).Do(']');
-		States[var] = CellDisposition.Zero;
+		MoveTo(condition).Zero(condition).Do(']');
+		States[condition] = CellDisposition.Zero;
 		return this;
 	}
 	
@@ -97,13 +112,16 @@ class ProgramBuilder : IDisposable {
 	public ProgramBuilder Zero(int var) {
 		if (States[var] != CellDisposition.Zero) {
 			using (StartLoop(var)) Decrement(var);
-			return this;
+		}
+		else if (ControlBlocks.Count > 0) {
+			ControlBlocks.Peek().UnzeroedAllocations.Add(var);
 		}
 		return this;
 	}
 	
-	public int Allocate() {
+	public int Allocate(string? debugName = default) {
 		int var = Array.IndexOf(Allocated, false);
+		if (debugName is string) Comment($"Allocating { debugName } at { var }");
         Allocated[var] = true;
 		Zero(var);
         return var;
@@ -163,8 +181,8 @@ class ProgramBuilder : IDisposable {
 		return this;
 	}
 	
-	public int AllocateAndCopy(int var) {
-		int target = Allocate();
+	public int AllocateAndCopy(int var, string? debugName = default) {
+		int target = Allocate(debugName);
 		Copy(target, var);
 		return target;
 	}
@@ -198,15 +216,25 @@ class ProgramBuilder : IDisposable {
 	
 	/// <summary>target = numerator/denominator; numerator = 0;</summary>
 	public ProgramBuilder Div(int target, int numerator, int denominator) {
-		int progress = AllocateAndCopy(denominator);
+		Comment($"div inputs - target: { target }, numerator: { numerator } denominator: {denominator }");
+		int progress = AllocateAndCopy(denominator, nameof(denominator));
 		Zero(target);
+		Comment("starting main div loop");
 		using (StartLoop(numerator)) {
+			Comment("--numerator");
 			Decrement(numerator);
+			Comment("--progress");
 			Decrement(progress);
-			int ztest = Allocate();
-			Not(ztest, progress);
+			int ztest = Allocate(nameof(ztest));
+			int progresscopy = AllocateAndCopy(progress, nameof(progresscopy));
+			Comment("ztest = !progresscopy");
+			Not(ztest, progresscopy);
+			Release(progresscopy);
+			Comment("if ztest");
 			using (StartIf(ztest)) {
+				Comment("copy progress = denominator");
 				Copy(progress, denominator);
+				Comment("++target");
 				Increment(target);
 			}
 			Release(ztest);
