@@ -6,7 +6,7 @@
 
 const string SourceKey = "source", TapeNameKey = "names";
 void Main() {
-//    var run = Util.KeepRunning();
+    var run = Util.KeepRunning();
 	Util.RawHtml("<style>.current{background:#8888;}</style>").Dump();
     
     var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 }.Dump("Source");
@@ -122,15 +122,20 @@ record Program(IList<Instruction> Instructions) {
         return ip >= Instructions.Count;
     }
 
-    public void StepOut(Tape tape, ITerminal io) {
-        if (ip >= Instructions.Count) return;
-        if (Instructions[ip] is Loop { Inside: true } loop) {
+	// stepped out of a loop?
+    public bool StepOut(Tape tape, ITerminal io) {
+        if (ip >= Instructions.Count) return false;
+        
+		if (Instructions[ip] is Loop { Inside: true } loop) {
             loop.StepOut(tape, io);
             ip++;
+			return true;
         }
-        else for (; ip < Instructions.Count; ip++) {
+        
+		for (; ip < Instructions.Count; ip++) {
             Instructions[ip].Run(tape, io);
         }
+		return false;
     }
 
     public void JumpToStart() => ip = 0;
@@ -173,8 +178,8 @@ record Loop(string Source, int Offset, Program Body) : Instruction(Source, Offse
     public bool Inside { get; private set; } = false;
 
     public override string GetDisplayString(bool isCurrent) {
-        return (isCurrent && !Inside)
-            ? $"^[ { Body.GetDisplayString(false) } ]"
+        return (isCurrent)
+            ? $"^[ { Body.GetDisplayString(isCurrent & Inside) } ]"
             : $"[ { Body.GetDisplayString(isCurrent) } ]";
     }
 
@@ -199,8 +204,7 @@ record Loop(string Source, int Offset, Program Body) : Instruction(Source, Offse
     }
 
     public void StepOut(Tape tape, ITerminal io) {
-        Body.StepOut(tape, io);
-        this.Run(tape, io);
+        if (!Body.StepOut(tape, io)) this.Run(tape, io);
     }
 }
 

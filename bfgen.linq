@@ -5,21 +5,15 @@
 
 void Main() {
 	ProgramBuilder b = new();
-
-	int x = b.Allocate();
-	b.Increment(x, 20);
-	int y = b.Allocate();
-	b.Increment(y, 3);
-	int div = b.Allocate();
-	b.Div(div, x, y);
 	
-	//int n = b.Allocate();
-	//b.Increment(n, 3);
-	//using (b.StartLoop(n)) {
-	//	b.Decrement(n);
-	//	int t = b.Allocate();
-	//	b.Increment(t, 48).Do('.').Decrement(t, 47);
-	//}
+	int n = b.Allocate();
+	b.Increment(n, 3);
+	using (b.StartLoop(n)) {
+		b.Decrement(n);
+		int t = b.Allocate();
+		b.Comment("should be zero every time");
+		b.Increment(t, 48).Do('.').Decrement(t, 47);
+	}
 	
 	b.Build().Dump();
 }
@@ -33,15 +27,44 @@ enum CellDisposition {
 class ProgramBuilder : IDisposable {
 	const int MemorySize = 256;
 
-	private enum BlockType { Loop, If }
-	private record Block(BlockType Type, int ControlVariable, List<int> UnzeroedAllocations);
+	private enum BlockType { Top, Loop, If }
+	private record Block(
+		BlockType Type, 
+		int ControlVariable, 
+		List<int> UnzeroedAllocations, 
+		CellDisposition[] States);
+
+	private class BlockStack {
+		private readonly Stack<Block> ControlBlocks = new();
+		
+		public BlockStack() {
+			ControlBlocks.Push(new(BlockType.Top, -1, new(), new CellDisposition[MemorySize]));
+		}
+
+		public void Push(BlockType type, int controlVariable) => ControlBlocks.Push(
+			new(type, controlVariable, new(), ControlBlocks.Peek().States.ToArray()));
+		
+		public Block Pop() {
+			Block inner = ControlBlocks.Pop(), outer = ControlBlocks.Peek();
+			for (int i = 0; i < MemorySize; i++) {
+				outer.States[i] = (outer.States[i], inner.States[i]) switch {
+					(var a, var b) when a == b => a,
+					_ => CellDisposition.Unknown,
+				};
+			}
+			return inner;
+		}
+		
+		public Block Current => ControlBlocks.Peek();
+	}
+	BlockStack ControlBlocks = new();
+	CellDisposition[] States => ControlBlocks.Current.States;
+	
+	public bool GenerateComments { get; set; } = true;
 
 	private StringBuilder Program = new();
 	private int Head;
-	private readonly Stack<Block> ControlBlocks = new();
     private bool[] Allocated = new bool[MemorySize];
-	private CellDisposition[] States = new CellDisposition[MemorySize];
-	private bool[] Locked = new bool[MemorySize];
 	
 	public string Build() => Program.ToString();
 	
@@ -63,48 +86,51 @@ class ProgramBuilder : IDisposable {
 	}
 	
 	public ProgramBuilder Comment(string comment) {
+		if (!GenerateComments) return this;
 		if (Program[Program.Length - 1] != '\n') Do('\n');
 		return Do($"`{ comment }`\n");
 	}
 	
 	public ProgramBuilder StartLoop(int condition) {
-		ControlBlocks.Push(new (BlockType.Loop, condition, new()));
+		ControlBlocks.Push(BlockType.Loop, condition);
 		MoveTo(condition).Do('[');
 		States[condition] = CellDisposition.NonZero;
 		return this;
 	}
 	
 	public ProgramBuilder EndLoop() {
-		var (type, condition, unzeroed) = ControlBlocks.Pop();
+		var (type, condition, unzeroed, states) = ControlBlocks.Current;
 		if (type != BlockType.Loop) throw new ($"Tried to end loop, but was actually ${type}");
 		foreach (var uz in unzeroed) {
 			if (States[uz] != CellDisposition.Zero) Zero(uz);
 		}
 		MoveTo(condition).Do(']');
+		ControlBlocks.Pop();
 		States[condition] = CellDisposition.Zero;
 		return this;
 	}
 	
 	/// <summary>if (condition) { condition = 0; </summary>
 	public ProgramBuilder StartIf(int condition) {
-		ControlBlocks.Push(new (BlockType.If, condition, new()));
+		ControlBlocks.Push(BlockType.If, condition);
 		MoveTo(condition).Do('[');
-		Locked[condition] = false;
 		return this;
 	}
 	
 	public ProgramBuilder EndIf() {
-		var (type, condition, unzeroed) = ControlBlocks.Pop();
+		var (type, condition, unzeroed, states) = ControlBlocks.Current;
 		if (type != BlockType.If) throw new ($"Tried to end if, but was actually ${type}");
 		MoveTo(condition).Zero(condition).Do(']');
+		ControlBlocks.Pop();
 		States[condition] = CellDisposition.Zero;
 		return this;
 	}
 	
 	public void Dispose() {
-		switch (ControlBlocks.Peek().Type) {
+		switch (ControlBlocks.Current.Type) {
 			case BlockType.Loop: EndLoop(); break;
 			case BlockType.If: EndIf(); break;
+			case BlockType.Top: throw new ("Can't close the top level block");
 		}
 	}
 	
@@ -113,8 +139,8 @@ class ProgramBuilder : IDisposable {
 		if (States[var] != CellDisposition.Zero) {
 			using (StartLoop(var)) Decrement(var);
 		}
-		else if (ControlBlocks.Count > 0) {
-			ControlBlocks.Peek().UnzeroedAllocations.Add(var);
+		else {
+			ControlBlocks.Current.UnzeroedAllocations.Add(var);
 		}
 		return this;
 	}
@@ -217,7 +243,7 @@ class ProgramBuilder : IDisposable {
 	/// <summary>target = numerator/denominator; numerator = 0;</summary>
 	public ProgramBuilder Div(int target, int numerator, int denominator) {
 		Comment($"div inputs - target: { target }, numerator: { numerator } denominator: {denominator }");
-		int progress = AllocateAndCopy(denominator, nameof(denominator));
+		int progress = AllocateAndCopy(denominator, nameof(progress));
 		Zero(target);
 		Comment("starting main div loop");
 		using (StartLoop(numerator)) {
@@ -236,6 +262,7 @@ class ProgramBuilder : IDisposable {
 				Copy(progress, denominator);
 				Comment("++target");
 				Increment(target);
+				Comment("wrapping up the ztest if block");
 			}
 			Release(ztest);
 		}
