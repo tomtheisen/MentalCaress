@@ -4,13 +4,14 @@
   <Namespace>LINQPad.Controls</Namespace>
 </Query>
 
-const string SourceKey = "source", TapeNameKey = "names";
+const string SourceKey = "source", TapeNameKey = "names", InputKey = "input";
 void Main() {
     var run = Util.KeepRunning();
 	Util.RawHtml("<style>.current{background:#8888;}</style>").Dump();
     
     var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 }.Dump("Source");
 	var tapeLabels = new TextBox(Util.LoadString(TapeNameKey) ?? "").Dump("Tape Names (space separated)");
+	var input = new TextBox(Util.LoadString(InputKey) ?? "").Dump("Input");
     var stepView = new DumpContainer(){ Style = "white-space: pre;" }.Dump("Instruction Head");
     var tapeView = new DumpContainer().Dump("Tape");
     var output = new DumpContainer().Dump("Output");
@@ -30,9 +31,10 @@ void Main() {
     void Load(Button? _) {
         Util.SaveString(SourceKey, source.Text);
 		Util.SaveString(TapeNameKey, tapeLabels.Text);
+		Util.SaveString(InputKey, input.Text);
         tape = new();
         prog = Parse(source.Text);
-        io.Reset();
+        io.Reset(input.Text);
         Update();
     }
     void Step(Button? _) {
@@ -64,13 +66,17 @@ interface ITerminal {
 }
 
 class BuilderIO : ITerminal {
+	private StringReader Input = new("");
     private StringBuilder Buffer = new();
     
     public string Output => Buffer.ToString();
     
-    public void Reset() => Buffer.Clear();
-
-    public byte Read() => (byte)System.Console.Read();
+    public void Reset(string input) {
+		Buffer.Clear();
+		Input = new(input);
+	}
+	
+    public byte Read() => (byte)Math.Max(0, Input.Read());
 
     public void Write(byte val) => Buffer.Append((char)val);
 }
@@ -92,6 +98,7 @@ class Tape {
     private ushort RightFrontier = 0x8000;
 
     public byte Read() => Memory[Head];
+	public void Write(byte v) => Memory[Head] = v;
     public byte Increment(byte by) => Memory[Head] += by;
     public void Move(ushort by) {
         Head += by;
@@ -128,7 +135,7 @@ record Program(IList<Instruction> Instructions) {
         
 		if (Instructions[ip] is Loop { Inside: true } loop) {
             loop.StepOut(tape, io);
-            ip++;
+            if (!loop.Inside) ip++;
 			return true;
         }
         
@@ -165,7 +172,9 @@ record CharInstruction(string Source, int Offset, char Symbol, int Repeat = 1) :
             case '+': tape.Increment((byte)Repeat); return true;
             case '<': tape.Move((ushort)-Repeat); return true;
             case '>': tape.Move((ushort)Repeat); return true;
-            case ',': throw new NotImplementedException();
+            case ',': 
+				for (int i = 0; i < Repeat; i++) tape.Write(io.Read());
+				return true;
             case '.': 
                 for (int i = 0; i < Repeat; i++) io.Write(tape.Read());
                 return true;
@@ -204,7 +213,11 @@ record Loop(string Source, int Offset, Program Body) : Instruction(Source, Offse
     }
 
     public void StepOut(Tape tape, ITerminal io) {
-        if (!Body.StepOut(tape, io)) this.Run(tape, io);
+        if (!Body.StepOut(tape, io)) {
+			this.Run(tape, io);
+			Inside = false;
+			Body.JumpToStart();
+		}
     }
 }
 
