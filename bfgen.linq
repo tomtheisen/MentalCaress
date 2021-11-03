@@ -7,26 +7,51 @@ void Main() {
 	ProgramBuilder builder = new() { GenerateComments = true };
     
 	int n = builder.Allocate(nameof(n));
-	int d = builder.Allocate(nameof(d));	
+	int digit = builder.Allocate(nameof(digit));	
 	int ten = builder.Allocate(nameof(ten));
 	builder.Increment(ten, 10);
 	
-	builder.MoveTo(d).Do(',').Decrement(d, 10);
-	using (builder.Loop(d)) {
+	builder.MoveTo(digit).Do(',').Decrement(digit, 10);
+	using (builder.Loop(digit)) {
 		int newn = builder.Allocate(nameof(newn));
 		builder.Mul(newn, ten, n);
 		builder.AddAndZero(n, newn);
 		builder.Release(newn);
 		
-		builder.Decrement(d, 38).AddAndZero(n, d);
-		builder.MoveTo(d).Do(',').Decrement(d, 10);
+		builder.Decrement(digit, 38).AddAndZero(n, digit);
+		builder.MoveTo(digit).Do(',').Decrement(digit, 10);
 	}
-	builder.Release(ten);
+	builder.Release(ten, digit);
 	
-	builder.Comment("writing number");
-	builder.WriteNumber(n);
-	builder.NewLine();
-	builder.WriteString("Thanks for playing.\n");
+	int factor = builder.Allocate(nameof(factor));
+	builder.Increment(factor, 1);
+	
+	builder.Decrement(n);
+	using (builder.Loop(n)) {
+		builder.Increment(n);
+		builder.Increment(factor);
+		
+		int ncopy = builder.AllocateAndCopy(n, nameof(ncopy));
+		int div = builder.Allocate(nameof(div));
+		int mod = builder.Allocate(nameof(mod));
+		builder.DivMod(div, mod, ncopy, factor);
+		builder.Release(ncopy);
+		
+		int divides = builder.Allocate(nameof(divides));
+		builder.Not(divides, mod);
+		using(builder.If(divides)) {
+			builder.Comment("Found divisor");
+			int fcopy = builder.AllocateAndCopy(factor, nameof(fcopy));
+			builder.WriteNumber(fcopy).Release(fcopy).NewLine();
+			builder.Zero(n).AddAndZero(n, div);
+			builder.Comment("Compensating factor");
+			builder.Decrement(factor);
+		}
+		builder.Release(divides, div, mod);
+		
+		builder.Decrement(n);
+	}
+	builder.WriteNumber(n).NewLine();
 	
     builder.Build().Dump();
 }
@@ -101,9 +126,18 @@ class ProgramBuilder : IDisposable {
 		return this;
 	}
 	
-	public ProgramBuilder Comment(string comment) {
+	public ProgramBuilder Comment(string comment, bool showStack = true) {
 		if (!GenerateComments) return this;
 		if (Program.Length != 0 && Program[Program.Length - 1] != '\n') Do('\n');
+		if (showStack) {
+			var frames = new StackTrace(1).GetFrames();
+			var stackNames = frames
+				.TakeWhile(f => f.GetMethod()?.DeclaringType == typeof(ProgramBuilder))
+				.Select(f => f.GetMethod()?.Name + ":")
+				.Reverse()
+				.ToList();
+			comment = string.Concat(stackNames) + comment;
+		}
 		return Do($"`{ comment }`\n");
 	}
 	
@@ -176,10 +210,11 @@ class ProgramBuilder : IDisposable {
         return var;
 	}
 	
-	public void Release(int var) {
+	public ProgramBuilder Release(int var) {
 		if (!Allocated[var]) throw new ("Can't release what was not yours");
 		if (Named[var]) Comment($"[{ var }]: ");
         Named[var] = Allocated[var] = false;
+		return this;
 	}
 	
 	public void Release(params int[] vars) {
@@ -335,7 +370,6 @@ class ProgramBuilder : IDisposable {
     
     /// <summary>div = numerator / divisor; mod = numerator % divisor; numerator = 0;</summary>
     public ProgramBuilder DivMod(int div, int mod, int numerator, int divisor) {
-		Comment("zeroing divmod outputs");
 		Zero(div).Zero(mod);
 		Comment("starting divmod loop");
         using (Loop(numerator)) {
@@ -415,11 +449,11 @@ class ProgramBuilder : IDisposable {
 			AddAndZero(n, ncopy);
 			Comment("Finishing loop");
 		}
-		Release(ncopy);
+		Release(ncopy, ten);
 		Comment("Moving to range");
 		MoveTo(range);
 		Comment("Outputting");
-		Do("[.>]").Do("<[<]"); Head = range - 1;
+		Do("[.>]").Do("<[[-]<]"); Head = range - 1;
 		ReleaseRange();
 		return this;
 	}

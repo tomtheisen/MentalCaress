@@ -7,11 +7,11 @@
 const string SourceKey = "source", TapeNameKey = "names", InputKey = "input";
 void Main() {
     var run = Util.KeepRunning();
-	Util.RawHtml("<style>.current{background:#e628;}body{font-size:150%;}</style>").Dump();
     
-    var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 }.Dump("Source");
-	var input = new TextArea(Util.LoadString(InputKey) ?? "").Dump("Input");
-    var stepView = new DumpContainer(){ Style = "white-space: pre-wrap;" }.Dump("Instruction Head");
+    var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 };
+	var input = new TextArea(Util.LoadString(InputKey) ?? "") { Cols = 12 };
+	Util.HorizontalRun("Source,Input", source, input).Dump();
+    var stepView = new DumpContainer(){ Style = "white-space: pre-wrap; max-height: 50vh; overflow-y: scroll;" }.Dump("Instruction Head");
     var tapeView = new DumpContainer().Dump("Tape");
     var output = new DumpContainer().Dump("Output");
 	
@@ -58,19 +58,21 @@ void Main() {
 		new Button("Terminate (T)", Terminate) { HtmlElement = { ID = "terminate" } }
     ).Dump();
     
-	Util.RawHtml(@"<script>
-		window.addEventListener('keydown', ev => {
-			const idmap = {
-				'KeyQ': 'load',
-				'KeyW': 'step',
-				'KeyE': 'step-out',
-				'KeyR': 'run',
-				'KeyT': 'terminate'
-			};
-			const id = idmap[ev.code];
-			if (id) document.getElementById(id).click();
-		});
-	</script>").Dump();
+	Util.RawHtml(@"
+		<style>.current{background:#e628;}body{font-size:150%;}</style>
+		<script>
+			window.addEventListener('keydown', ev => {
+				const idmap = {
+					'KeyQ': 'load',
+					'KeyW': 'step',
+					'KeyE': 'step-out',
+					'KeyR': 'run',
+					'KeyT': 'terminate'
+				};
+				const id = idmap[ev.code];
+				if (id) document.getElementById(id).click();
+			});
+		</script>").Dump();
 	
     Load(default);
 }
@@ -255,7 +257,7 @@ record Comment(string Source, int Offset, string Message) : Instruction(Source, 
 	public override void Run(Tape tape, ITerminal io) => Step(tape, io);
 
 	public override bool Step(Tape tape, ITerminal io) {
-		if (Regex.Match(Message, @"^\[(\d+)\]: ?(.*)$") is { Success: true } m) {
+		if (Regex.Match(Message, @"\[(\d+)\]: ?(.*)$") is { Success: true } m) {
 			tape.SetName(int.Parse(m.Groups[1].Value), m.Groups[2].Value);
 		}
 		return true;
