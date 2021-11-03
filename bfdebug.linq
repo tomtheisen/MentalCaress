@@ -7,15 +7,15 @@
 const string SourceKey = "source", TapeNameKey = "names", InputKey = "input";
 void Main() {
     var run = Util.KeepRunning();
-	Util.RawHtml("<style>.current{background:#8888;}</style>").Dump();
+	Util.RawHtml("<style>.current{background:#c858;}</style>").Dump();
     
     var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 }.Dump("Source");
 	var tapeLabels = new TextBox(Util.LoadString(TapeNameKey) ?? "").Dump("Tape Names (space separated)");
 	var input = new TextBox(Util.LoadString(InputKey) ?? "").Dump("Input");
-    var stepView = new DumpContainer(){ Style = "white-space: pre;" }.Dump("Instruction Head");
+    var stepView = new DumpContainer(){ Style = "white-space: pre-wrap;" }.Dump("Instruction Head");
     var tapeView = new DumpContainer().Dump("Tape");
     var output = new DumpContainer().Dump("Output");
-
+	
     Program prog = Parse("");
     Tape tape = new();
     BuilderIO io = new();
@@ -51,12 +51,23 @@ void Main() {
     }
     
     Util.HorizontalRun(withGaps: true, 
-        new Button("Load", Load), 
-        new Button("Step", Step), 
-        new Button("Step Out", StepOut),
-        new Button("Run", Run)
+        new Button("Load (Q)", Load) { HtmlElement = { ID = "load" } }, 
+        new Button("Step (W)", Step) { HtmlElement = { ID = "step" } }, 
+        new Button("Step Out (E)", StepOut) { HtmlElement = { ID = "step-out" } },
+        new Button("Run (R)", Run) { HtmlElement = { ID = "run" } }
     ).Dump();
     
+	Util.RawHtml(@"<script>
+		window.addEventListener('keydown', ev => {
+			switch (ev.code) {
+				case 'KeyQ': document.getElementById('load').click(); break;
+				case 'KeyW': document.getElementById('step').click(); break;
+				case 'KeyE': document.getElementById('step-out').click(); break;
+				case 'KeyR': document.getElementById('run').click(); break;
+			}
+		});
+	</script>").Dump();
+	
     Load(default);
 }
 

@@ -32,6 +32,7 @@ void Main() {
 	builder.Comment("Outputting");
 	builder.Do("[.>]");
 	builder.NewLine();
+	builder.WriteString("Thanks for playing.\n");
 	
 	builder.ReleaseRange();
 	
@@ -125,7 +126,7 @@ class ProgramBuilder : IDisposable {
 		var (type, condition, unzeroed, states) = ControlBlocks.Current;
 		if (type != BlockType.Loop) throw new ($"Tried to end loop, but was actually ${type}");
 		foreach (var uz in unzeroed) {
-			if (States[uz] != CellDisposition.Zero) Zero(uz, false);
+			if (States[uz] != CellDisposition.Zero) Zero(uz);
 		}
 		MoveTo(condition).Do(']');
 		ControlBlocks.Pop();
@@ -143,7 +144,7 @@ class ProgramBuilder : IDisposable {
 	public ProgramBuilder EndIf() {
 		var (type, condition, unzeroed, states) = ControlBlocks.Current;
 		if (type != BlockType.If) throw new ($"Tried to end if, but was actually ${type}");
-		MoveTo(condition).Zero(condition, false).Do(']');
+		MoveTo(condition).Zero(condition).Do(']');
 		ControlBlocks.Pop();
 		States[condition] = CellDisposition.Zero;
 		return this;
@@ -158,13 +159,9 @@ class ProgramBuilder : IDisposable {
 	}
 	
 	/// <summary>x=0;</summary>
-	public ProgramBuilder Zero(int var, bool ensureZeroedAtCloseOfLoop) {
+	public ProgramBuilder Zero(int var) {
 		if (States[var] != CellDisposition.Zero) {
 			using (Loop(var)) Decrement(var);
-		}
-		else if (ensureZeroedAtCloseOfLoop) {
-			if (!ControlBlocks.Current.UnzeroedAllocations.Contains(var))
-				ControlBlocks.Current.UnzeroedAllocations.Add(var);
 		}
 		return this;
 	}
@@ -174,7 +171,12 @@ class ProgramBuilder : IDisposable {
 		if (var >= Range - 1) throw new ("failed to allocate. no memory free.");
 		if (debugName is string) Comment($"Allocating { debugName } at { var }");
         Allocated[var] = true;
-		Zero(var, true);
+		if (States[var] != CellDisposition.Zero) {
+			Zero(var);
+		}
+		else if (!ControlBlocks.Current.UnzeroedAllocations.Contains(var)) {
+			ControlBlocks.Current.UnzeroedAllocations.Add(var);
+		}
         return var;
 	}
 	
@@ -205,24 +207,18 @@ class ProgramBuilder : IDisposable {
 	}
 	
 	public ProgramBuilder Increment(int x, int times = 1) {
-		times = times & 0xff;
+		times &= 0xff;
 		if (times == 0) return this;
-		MoveTo(x).Do(new string('+', times));
+		MoveTo(x);
+		if (times <= 128) Do(new string('+', times));
+		else Do(new string('-', 256 - times));
 		States[x] = States[x] == CellDisposition.Zero 
 			? CellDisposition.NonZero 
 			: CellDisposition.Unknown;
 		return this;
 	}
 
-	public ProgramBuilder Decrement(int x, int times = 1) {
-		times = times & 0xff;
-		if (times == 0) return this;
-		MoveTo(x).Do(new string('-', times));
-		States[x] = States[x] == CellDisposition.Zero 
-			? CellDisposition.NonZero 
-			: CellDisposition.Unknown;
-		return this;
-	}
+	public ProgramBuilder Decrement(int x, int times = 1) => Increment(x, -times);
 		
 	/// <summary>acc += operand; operand = 0;</summary>
 	public ProgramBuilder AddAndZero(int acc, int operand) {
@@ -244,7 +240,7 @@ class ProgramBuilder : IDisposable {
     
 	/// <summary>target1=target2=source; source=0;</summary>
 	public ProgramBuilder MoveTwice(int target1, int target2, int source) {
-		Zero(target1, false).Zero(target2, false);
+		Zero(target1).Zero(target2);
 		using (Loop(source)) {
 			Decrement(source);
 			Increment(target1);
@@ -279,7 +275,7 @@ class ProgramBuilder : IDisposable {
 	
 	/// <summary>target = operand1 * operand2;</summary>
 	public ProgramBuilder Mul(int target, int operand1, int operand2) {
-		Zero(target, false);
+		Zero(target);
 		using (Loop(operand2)) {
 			Add(target, operand1);
 			Decrement(operand2);
@@ -289,9 +285,9 @@ class ProgramBuilder : IDisposable {
 	
 	/// <summary>target = operand == 0 ? 1 : 0; operand = 0;</summary>
 	public ProgramBuilder Not(int target, int operand) {
-		Zero(target, false).Increment(target);
+		Zero(target).Increment(target);
 		using(If(operand)) {
-			Zero(target, false);
+			Zero(target);
 		}
 		return this;
 	}
@@ -306,7 +302,7 @@ class ProgramBuilder : IDisposable {
 	/// <summary>target = numerator/denominator; numerator = 0;</summary>
 	public ProgramBuilder Div(int target, int numerator, int denominator) {
 		int progress = AllocateAndCopy(denominator, nameof(progress));
-		Zero(target, false);
+		Zero(target);
 		using (Loop(numerator)) {
 			Decrement(numerator);
 			Decrement(progress);
@@ -325,16 +321,15 @@ class ProgramBuilder : IDisposable {
     
     /// <summary>target = numerator % divisor; numerator = 0;</summary>
     public ProgramBuilder Mod(int target, int numerator, int divisor) {
-        Zero(target, false);
+        Zero(target);
         using (Loop(numerator)) {
-            Decrement(numerator);
-            Increment(target);
+            Decrement(numerator).Increment(target);
             
             int targetCopy = AllocateAndCopy(target, nameof(targetCopy));
             int divisorCopy = AllocateAndCopy(divisor, nameof(divisorCopy));
             Eq(targetCopy, divisorCopy);
             using (If(targetCopy)) {
-                Zero(target, false);
+                Zero(target);
             }
             Release(targetCopy, divisorCopy);
         }
@@ -343,30 +338,52 @@ class ProgramBuilder : IDisposable {
     
     /// <summary>div = numerator / divisor; mod = numerator % divisor; numerator = 0;</summary>
     public ProgramBuilder DivMod(int div, int mod, int numerator, int divisor) {
-        Zero(div, false).Zero(mod, false);
+		Comment("zeroing divmod outputs");
+		Zero(div).Zero(mod);
+		Comment("starting divmod loop");
         using (Loop(numerator)) {
-            Decrement(numerator);
-            Increment(mod);
+			Comment("decrement numerator, increment mod");
+            Decrement(numerator).Increment(mod);
             
-            int modCopy = AllocateAndCopy(mod);
-            int divisorCopy = AllocateAndCopy(divisor);
-            Eq(modCopy, divisorCopy);
+            int modCopy = AllocateAndCopy(mod, nameof(modCopy));
+            int divisorCopy = AllocateAndCopy(divisor, nameof(divisorCopy));
+            Comment("eq modcopy divisorcopy");
+			Eq(modCopy, divisorCopy);
+			Comment("if modcopy");
             using (If(modCopy)) {
-                Zero(mod, false);
+				Comment("zeroing mod");
+                Zero(mod);
+				Comment("increment div");
                 Increment(div);
+				Comment("ending if block");
             }
             Release(modCopy, divisorCopy);
+			Comment("ending divmod loop");
         }
         return this;
     }
     
-    public ProgramBuilder NewLine() {
+	public ProgramBuilder WriteChar(char c) {
         int nl = Allocate();
-        Increment(nl, 10);
+        Increment(nl, (int)c);
         Do('.');
         Release(nl);
         return this;
-    }
+	}
+	
+    public ProgramBuilder NewLine() => WriteChar('\n');
+	
+	public ProgramBuilder WriteString(string s) {
+		Comment("Writing " + s);
+		int ch = Allocate(), last = 0;
+		foreach (char c in s) {
+			Increment(ch, c - last);
+			Do('.');
+			last = c;
+		}
+		Release(ch);
+		return this;
+	}
     
     public ProgramBuilder PrintDigit(int var) {
         Increment(var, 48);
