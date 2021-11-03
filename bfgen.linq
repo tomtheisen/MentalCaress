@@ -11,30 +11,30 @@ void Main() {
 	int ten = builder.Allocate(nameof(ten));
 	builder.Increment(ten, 10);
 	
-	int newn = builder.Allocate(nameof(newn));
+	int ncopy = builder.Allocate(nameof(ncopy));
 	int range = builder.AllocateRange(3);
-
 	using (builder.Loop(n)) {
 		builder.Comment("Pushing range");
 		builder.PushRange();
 		builder.Comment("Doing divmod");
-		builder.DivMod(newn, range, n, ten);
+		builder.DivMod(ncopy, range, n, ten);
 		builder.Comment("Increment 48");
 		builder.Increment(range, 48);
 		builder.Comment("Move back to n");
-		builder.AddAndZero(n, newn);
+		builder.AddAndZero(n, ncopy);
 		builder.Comment("Finishing loop");
 	}
-	builder.Release(newn);
+	builder.Release(ncopy);
 	
 	builder.Comment("Moving to range");
 	builder.MoveTo(range);
 	builder.Comment("Outputting");
 	builder.Do("[.>]");
+	builder.Do("<[<]>");
+	builder.ReleaseRange();
+	
 	builder.NewLine();
 	builder.WriteString("Thanks for playing.\n");
-	
-	builder.ReleaseRange();
 	
     builder.Build().Dump();
 }
@@ -169,7 +169,7 @@ class ProgramBuilder : IDisposable {
 	public int Allocate(string? debugName = default) {
 		int var = Array.IndexOf(Allocated, false);
 		if (var >= Range - 1) throw new ("failed to allocate. no memory free.");
-		if (debugName is string) Comment($"Allocating { debugName } at { var }");
+		if (debugName is string) Comment($"[{ var }]: { debugName }");
         Allocated[var] = true;
 		if (States[var] != CellDisposition.Zero) {
 			Zero(var);

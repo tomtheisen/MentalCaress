@@ -7,10 +7,9 @@
 const string SourceKey = "source", TapeNameKey = "names", InputKey = "input";
 void Main() {
     var run = Util.KeepRunning();
-	Util.RawHtml("<style>.current{background:#c858;}</style>").Dump();
+	Util.RawHtml("<style>.current{background:#e628;}body{font-size:150%;}</style>").Dump();
     
     var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 }.Dump("Source");
-	var tapeLabels = new TextBox(Util.LoadString(TapeNameKey) ?? "").Dump("Tape Names (space separated)");
 	var input = new TextBox(Util.LoadString(InputKey) ?? "").Dump("Input");
     var stepView = new DumpContainer(){ Style = "white-space: pre-wrap;" }.Dump("Instruction Head");
     var tapeView = new DumpContainer().Dump("Tape");
@@ -24,13 +23,11 @@ void Main() {
         string progDisplay = prog.GetDisplayString(true);
 		progDisplay = Regex.Replace(progDisplay, @"\^(\S+)", "<span class=current>$1</span>");
         stepView.Content = Util.RawHtml(progDisplay);
-        tapeView.Content = string.Join(' ', tapeLabels.Text.Split().Select(t => t.Length < 5 ? t.PadRight(5) : t[..5])) 
-			+ "\n" + tape.ToString();
+        tapeView.Content = tape.ToString();
         output.Content = io.Output;
     }
     void Load(Button? _) {
         Util.SaveString(SourceKey, source.Text);
-		Util.SaveString(TapeNameKey, tapeLabels.Text);
 		Util.SaveString(InputKey, input.Text);
         tape = new();
         prog = Parse(source.Text);
@@ -49,22 +46,29 @@ void Main() {
         prog.StepOut(tape, io);
         Update();
     }
+	void Terminate(Button? _) {
+		run?.Dispose();
+	}
     
     Util.HorizontalRun(withGaps: true, 
         new Button("Load (Q)", Load) { HtmlElement = { ID = "load" } }, 
         new Button("Step (W)", Step) { HtmlElement = { ID = "step" } }, 
         new Button("Step Out (E)", StepOut) { HtmlElement = { ID = "step-out" } },
-        new Button("Run (R)", Run) { HtmlElement = { ID = "run" } }
+        new Button("Run (R)", Run) { HtmlElement = { ID = "run" } },
+		new Button("Terminate (T)", Terminate) { HtmlElement = { ID = "terminate" } }
     ).Dump();
     
 	Util.RawHtml(@"<script>
 		window.addEventListener('keydown', ev => {
-			switch (ev.code) {
-				case 'KeyQ': document.getElementById('load').click(); break;
-				case 'KeyW': document.getElementById('step').click(); break;
-				case 'KeyE': document.getElementById('step-out').click(); break;
-				case 'KeyR': document.getElementById('run').click(); break;
-			}
+			const idmap = {
+				'KeyQ': 'load',
+				'KeyW': 'step',
+				'KeyE': 'step-out',
+				'KeyR': 'run',
+				'KeyT': 'terminate'
+			};
+			const id = idmap[ev.code];
+			if (id) document.getElementById(id).click();
 		});
 	</script>").Dump();
 	
@@ -95,6 +99,10 @@ class BuilderIO : ITerminal {
 class Tape {
     public override string ToString() {
         StringBuilder result = new();
+		foreach (var t in TapeLabels) {
+			result.Append(t.Length < 5 ? t.PadRight(5) : t[..5]).Append(' ');
+		}
+		result.AppendLine();
         for (ushort i = LeftFrontier; i != RightFrontier + 1; i++) {
             result.AppendFormat("{0:X2}({1}) ", Memory[i], Memory[i] >= 32 && Memory[i] < 127 ? (char)Memory[i] : '?');
         }
@@ -103,6 +111,7 @@ class Tape {
         return result.ToString();
     }
 
+	private List<string> TapeLabels = new();
     private byte[] Memory = new byte[0x10000];
     private ushort Head = 0x8000;
     private ushort LeftFrontier = 0x8000;
@@ -116,6 +125,11 @@ class Tape {
 		LeftFrontier = Math.Min(LeftFrontier, Head);
 		RightFrontier = Math.Max(RightFrontier, Head);
     }
+
+	public void SetName(int v, string name) {
+		while (TapeLabels.Count <= v) TapeLabels.Add("");
+		TapeLabels[v] = name;
+	}
 }
 
 record Program(IList<Instruction> Instructions) {
@@ -238,9 +252,14 @@ record Comment(string Source, int Offset, string Message) : Instruction(Source, 
 			? $"\n^`{ Message }`"
 			: $"\n`{ Message }`";
 
-	public override void Run(Tape tape, ITerminal io) {}
+	public override void Run(Tape tape, ITerminal io) => Step(tape, io);
 
-	public override bool Step(Tape tape, ITerminal io) => true;
+	public override bool Step(Tape tape, ITerminal io) {
+		if (Regex.Match(Message, @"^\[(\d+)\]: (.*)$") is { Success: true } m) {
+			tape.SetName(int.Parse(m.Groups[1].Value), m.Groups[2].Value);
+		}
+		return true;
+	}
 }
 
 Program Parse(string prog) {
