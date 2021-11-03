@@ -4,35 +4,27 @@
 </Query>
 
 void Main() {
-	ProgramBuilder builder = new();
+	ProgramBuilder builder = new() { GenerateComments = true };
     
 	int n = builder.Allocate(nameof(n));
-	builder.Increment(n, 247);
+	int d = builder.Allocate(nameof(d));	
 	int ten = builder.Allocate(nameof(ten));
 	builder.Increment(ten, 10);
 	
-	int ncopy = builder.Allocate(nameof(ncopy));
-	int range = builder.AllocateRange(3);
-	using (builder.Loop(n)) {
-		builder.Comment("Pushing range");
-		builder.PushRange();
-		builder.Comment("Doing divmod");
-		builder.DivMod(ncopy, range, n, ten);
-		builder.Comment("Increment 48");
-		builder.Increment(range, 48);
-		builder.Comment("Move back to n");
-		builder.AddAndZero(n, ncopy);
-		builder.Comment("Finishing loop");
+	builder.MoveTo(d).Do(',').Decrement(d, 10);
+	using (builder.Loop(d)) {
+		int newn = builder.Allocate(nameof(newn));
+		builder.Mul(newn, ten, n);
+		builder.AddAndZero(n, newn);
+		builder.Release(newn);
+		
+		builder.Decrement(d, 38).AddAndZero(n, d);
+		builder.MoveTo(d).Do(',').Decrement(d, 10);
 	}
-	builder.Release(ncopy);
+	builder.Release(ten);
 	
-	builder.Comment("Moving to range");
-	builder.MoveTo(range);
-	builder.Comment("Outputting");
-	builder.Do("[.>]");
-	builder.Do("<[<]>");
-	builder.ReleaseRange();
-	
+	builder.Comment("writing number");
+	builder.WriteNumber(n);
 	builder.NewLine();
 	builder.WriteString("Thanks for playing.\n");
 	
@@ -166,10 +158,14 @@ class ProgramBuilder : IDisposable {
 		return this;
 	}
 	
+	private bool[] Named = new bool[MemorySize];
 	public int Allocate(string? debugName = default) {
 		int var = Array.IndexOf(Allocated, false);
 		if (var >= Range - 1) throw new ("failed to allocate. no memory free.");
-		if (debugName is string) Comment($"[{ var }]: { debugName }");
+		if (debugName is string) {
+			Comment($"[{ var }]: { debugName }");
+			Named[var] = true;
+		}
         Allocated[var] = true;
 		if (States[var] != CellDisposition.Zero) {
 			Zero(var);
@@ -182,7 +178,8 @@ class ProgramBuilder : IDisposable {
 	
 	public void Release(int var) {
 		if (!Allocated[var]) throw new ("Can't release what was not yours");
-        Allocated[var] = false;
+		if (Named[var]) Comment($"[{ var }]: ");
+        Named[var] = Allocated[var] = false;
 	}
 	
 	public void Release(params int[] vars) {
@@ -273,7 +270,7 @@ class ProgramBuilder : IDisposable {
 		return this;
 	}
 	
-	/// <summary>target = operand1 * operand2;</summary>
+	/// <summary>target = operand1 * operand2; operand2 = 0;</summary>
 	public ProgramBuilder Mul(int target, int operand1, int operand2) {
 		Zero(target);
 		using (Loop(operand2)) {
@@ -399,6 +396,31 @@ class ProgramBuilder : IDisposable {
 		Do("[>]<"); // go to last element
 		Do("[[->+<]<]>"); // they all rolled over
 		
+		return this;
+	}
+	
+	public ProgramBuilder WriteNumber(int n) {
+		int ten = Allocate(nameof(ten));
+		Increment(ten, 10);
+		int ncopy = Allocate(nameof(ncopy));
+		int range = AllocateRange(additionalAllocationBuffer: 3);
+		using (Loop(n)) {
+			Comment("Pushing range");
+			PushRange();
+			Comment("Doing divmod");
+			DivMod(ncopy, range, n, ten);
+			Comment("Increment 48");
+			Increment(range, 48);
+			Comment("Move back to n");
+			AddAndZero(n, ncopy);
+			Comment("Finishing loop");
+		}
+		Release(ncopy);
+		Comment("Moving to range");
+		MoveTo(range);
+		Comment("Outputting");
+		Do("[.>]").Do("<[<]"); Head = range - 1;
+		ReleaseRange();
 		return this;
 	}
 }

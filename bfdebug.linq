@@ -10,7 +10,7 @@ void Main() {
 	Util.RawHtml("<style>.current{background:#e628;}body{font-size:150%;}</style>").Dump();
     
     var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 }.Dump("Source");
-	var input = new TextBox(Util.LoadString(InputKey) ?? "").Dump("Input");
+	var input = new TextArea(Util.LoadString(InputKey) ?? "").Dump("Input");
     var stepView = new DumpContainer(){ Style = "white-space: pre-wrap;" }.Dump("Instruction Head");
     var tapeView = new DumpContainer().Dump("Tape");
     var output = new DumpContainer().Dump("Output");
@@ -31,7 +31,7 @@ void Main() {
 		Util.SaveString(InputKey, input.Text);
         tape = new();
         prog = Parse(source.Text);
-        io.Reset(input.Text);
+        io.Reset(input.Text.Replace("\r", ""));
         Update();
     }
     void Step(Button? _) {
@@ -255,7 +255,7 @@ record Comment(string Source, int Offset, string Message) : Instruction(Source, 
 	public override void Run(Tape tape, ITerminal io) => Step(tape, io);
 
 	public override bool Step(Tape tape, ITerminal io) {
-		if (Regex.Match(Message, @"^\[(\d+)\]: (.*)$") is { Success: true } m) {
+		if (Regex.Match(Message, @"^\[(\d+)\]: ?(.*)$") is { Success: true } m) {
 			tape.SetName(int.Parse(m.Groups[1].Value), m.Groups[2].Value);
 		}
 		return true;
