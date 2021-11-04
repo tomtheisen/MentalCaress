@@ -4,26 +4,7 @@
 </Query>
 
 void Main() {
-	ProgramBuilder builder = new() { GenerateComments = true };
-    
-	/*
-	int i = builder.Allocate(nameof(i));
-	builder.Increment(i, 2);
-	using (builder.Loop(i)) {
-		builder.Decrement(i);
-
-		int t = builder.Allocate(nameof(t));
-		builder.Increment(t, 1);
-		using (builder.If(t)) {
-			int o = builder.Allocate(nameof(o));
-			builder.Increment(o, 33);
-			builder.MoveTo(o).Do('.');
-			builder.Release(o);
-		}
-		
-		builder.Release(t);
-	}
-	*/
+	ProgramBuilder builder = new() { GenerateComments = false };
 	
 	//*
 	int n = builder.Allocate(nameof(n));
