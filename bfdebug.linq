@@ -122,7 +122,7 @@ class Tape {
 				Memory[i] >= 32 && Memory[i] < 127 ? (char)Memory[i] : '?');
         }
         result.AppendLine();
-        result.AppendLine("^".PadLeft((ushort)(Head - LeftFrontier) * 6 + 1));
+        result.AppendLine("^".PadLeft((ushort)(Head - LeftFrontier) * (CellWidth + 1) + 4));
         return result.ToString();
     }
 
@@ -171,35 +171,39 @@ record Program(IList<Instruction> Instructions) {
         return ip >= Instructions.Count;
     }
 
-	// stepped out of a loop?
-    public bool StepOut(Tape tape, ITerminal io) {
-        if (ip >= Instructions.Count) return false;
-        
-		if (Instructions[ip] is Loop { Inside: true } loop) {
-            loop.StepOut(tape, io);
-            if (!loop.Inside) ip++;
-			return true;
-        }
-        
-		for (; ip < Instructions.Count; ip++) {
-            Instructions[ip].Run(tape, io);
-        }
-		return false;
-    }
+	private (Program parent, Loop? inner) DeepestCurrentLoop() {
+		if (ip >= Instructions.Count) return default;
+		
+		Program parentBody = this, currentBody = this;
+		Loop? targetLoop = null;
+		
+		Instruction current = Instructions[ip];
+		while (current is Loop { Inside: true } currentLoop) {
+			targetLoop = currentLoop;
+			parentBody = currentBody;
+			currentBody = currentLoop.Body;
+			current = currentBody.Instructions[currentBody.ip];
+		}
+		return (parentBody, targetLoop);
+	}
+
+	public void StepOut(Tape tape, ITerminal io) {
+		var (parentBody, targetLoop) = DeepestCurrentLoop();
+		if (targetLoop is not null) {
+			while (targetLoop.Inside == true) {
+				targetLoop.Step(tape, io);
+			}
+			targetLoop.Run(tape, io);
+			parentBody.ip++;
+		}
+	}
 	
 	// continued a loop?
-    public bool Continue(Tape tape, ITerminal io) {
-        if (ip >= Instructions.Count) return false;
-        
-		if (Instructions[ip] is Loop { Inside: true } loop) {
-            loop.Continue(tape, io);
-			return true;
-        }
-        
-		for (; ip < Instructions.Count; ip++) {
-            Instructions[ip].Run(tape, io);
-        }
-		return false;
+    public void Continue(Tape tape, ITerminal io) {
+		var (_, targetLoop) = DeepestCurrentLoop();
+		while (targetLoop?.Inside == true) {
+			targetLoop.Step(tape, io);
+		}
     }
 
     public void JumpToStart() => ip = 0;
@@ -268,22 +272,6 @@ record Loop(string Source, int Offset, Program Body) : Instruction(Source, Offse
             return false;
         }
     }
-
-    public void StepOut(Tape tape, ITerminal io) {
-        if (!Body.StepOut(tape, io)) {
-			this.Run(tape, io);
-			Inside = false;
-			Body.JumpToStart();
-		}
-    }
-
-	public void Continue(Tape tape, ITerminal io) {
-		if (!Body.Continue(tape, io)) {
-			this.Body.Run(tape, io);
-			Inside = false;
-			Body.JumpToStart();
-		}
-	}
 }
 
 record Comment(string Source, int Offset, string Message) : Instruction(Source, Offset) {
