@@ -8,10 +8,33 @@ const string SourceKey = "source", TapeNameKey = "names", InputKey = "input";
 void Main() {
     var run = Util.KeepRunning();
     
+	Util.HtmlHead.AddStyles(".current{background:#e628;} body{font-size:150%;}");
+	Util.HtmlHead.AddScript(@"
+		function scrollDebugger() {
+			setTimeout(() => {
+				const currents = document.querySelectorAll('span.current');
+				const last = currents[currents.length - 1];
+				if (last) last.scrollIntoView(false);
+			}, 100);
+		}
+		window.addEventListener('keydown', ev => {
+			const idmap = {
+				'KeyQ': 'load',
+				'KeyW': 'step',
+				'KeyE': 'continue',
+				'KeyR': 'step-out',
+				'KeyT': 'run',
+			};
+			const id = idmap[ev.code];
+			if (id) document.getElementById(id).click();
+		});");
+	
     var source = new TextArea(Util.LoadString(SourceKey) ?? ""){ Rows = 6 };
 	var input = new TextArea(Util.LoadString(InputKey) ?? "") { Cols = 12 };
 	Util.HorizontalRun("Source,Input", source, input).Dump();
-    var stepView = new DumpContainer(){ Style = "white-space: pre-wrap; max-height: 50vh; overflow-y: scroll;" }.Dump("Instruction Head");
+    var stepView = new DumpContainer() {
+		Style = "white-space: pre-wrap; max-height: 50vh; overflow-y: scroll;",
+	}.Dump("Instruction Head");
     var tapeView = new DumpContainer().Dump("Tape");
     var output = new DumpContainer().Dump("Output");
 	
@@ -25,6 +48,7 @@ void Main() {
         stepView.Content = Util.RawHtml(progDisplay);
         tapeView.Content = tape.ToString();
         output.Content = io.Output;
+		Util.InvokeScript(false, "scrollDebugger");
     }
     void Load(Button? _) {
         Util.SaveString(SourceKey, source.Text);
@@ -38,42 +62,27 @@ void Main() {
         prog.Step(tape, io);
         Update();
     }
-    void Run(Button? _) {
-        prog.Run(tape, io);
-        Update();
-    }
+	void Continue(Button? _) {
+		prog.Continue(tape, io);
+		Update();
+	}
     void StepOut(Button? _) {
         prog.StepOut(tape, io);
         Update();
     }
-	void Terminate(Button? _) {
-		run?.Dispose();
-	}
+    void Run(Button? _) {
+        prog.Run(tape, io);
+        Update();
+    }
     
     Util.HorizontalRun(withGaps: true, 
         new Button("Load (Q)", Load) { HtmlElement = { ID = "load" } }, 
         new Button("Step (W)", Step) { HtmlElement = { ID = "step" } }, 
-        new Button("Step Out (E)", StepOut) { HtmlElement = { ID = "step-out" } },
-        new Button("Run (R)", Run) { HtmlElement = { ID = "run" } },
-		new Button("Terminate (T)", Terminate) { HtmlElement = { ID = "terminate" } }
+		new Button("Continue (E)", Continue) { HtmlElement = { ID = "continue" } },
+        new Button("Step Out (R)", StepOut) { HtmlElement = { ID = "step-out" } },
+        new Button("Run (T)", Run) { HtmlElement = { ID = "run" } }
     ).Dump();
     
-	Util.RawHtml(@"
-		<style>.current{background:#e628;}body{font-size:150%;}</style>
-		<script>
-			window.addEventListener('keydown', ev => {
-				const idmap = {
-					'KeyQ': 'load',
-					'KeyW': 'step',
-					'KeyE': 'step-out',
-					'KeyR': 'run',
-					'KeyT': 'terminate'
-				};
-				const id = idmap[ev.code];
-				if (id) document.getElementById(id).click();
-			});
-		</script>").Dump();
-	
     Load(default);
 }
 
@@ -101,12 +110,16 @@ class BuilderIO : ITerminal {
 class Tape {
     public override string ToString() {
         StringBuilder result = new();
+		const int CellWidth = 8;
 		foreach (var t in TapeLabels) {
-			result.Append(t.Length < 5 ? t.PadRight(5) : t[..5]).Append(' ');
+			result.Append(t.Length < CellWidth ? t.PadRight(CellWidth) : t[..CellWidth]).Append(' ');
 		}
 		result.AppendLine();
         for (ushort i = LeftFrontier; i != RightFrontier + 1; i++) {
-            result.AppendFormat("{0:X2}({1}) ", Memory[i], Memory[i] >= 32 && Memory[i] < 127 ? (char)Memory[i] : '?');
+            result.AppendFormat("{0:X2}:{1:X2}({2}) ", 
+				i - InitialHead & 0xff,
+				Memory[i], 
+				Memory[i] >= 32 && Memory[i] < 127 ? (char)Memory[i] : '?');
         }
         result.AppendLine();
         result.AppendLine("^".PadLeft((ushort)(Head - LeftFrontier) * 6 + 1));
@@ -115,6 +128,7 @@ class Tape {
 
 	private List<string> TapeLabels = new();
     private byte[] Memory = new byte[0x10000];
+	private const ushort InitialHead = 0x8000;
     private ushort Head = 0x8000;
     private ushort LeftFrontier = 0x8000;
     private ushort RightFrontier = 0x8000;
@@ -144,9 +158,10 @@ record Program(IList<Instruction> Instructions) {
     private int ip = 0;
 
     public void Run(Tape tape, ITerminal io) {
-        for (ip = 0; ip < Instructions.Count; ip++) {
+        for (; ip < Instructions.Count; ip++) {
             Instructions[ip].Run(tape, io);
         }
+		ip = 0;
     }
 
     // finished?
@@ -163,6 +178,21 @@ record Program(IList<Instruction> Instructions) {
 		if (Instructions[ip] is Loop { Inside: true } loop) {
             loop.StepOut(tape, io);
             if (!loop.Inside) ip++;
+			return true;
+        }
+        
+		for (; ip < Instructions.Count; ip++) {
+            Instructions[ip].Run(tape, io);
+        }
+		return false;
+    }
+	
+	// continued a loop?
+    public bool Continue(Tape tape, ITerminal io) {
+        if (ip >= Instructions.Count) return false;
+        
+		if (Instructions[ip] is Loop { Inside: true } loop) {
+            loop.Continue(tape, io);
 			return true;
         }
         
@@ -246,6 +276,14 @@ record Loop(string Source, int Offset, Program Body) : Instruction(Source, Offse
 			Body.JumpToStart();
 		}
     }
+
+	public void Continue(Tape tape, ITerminal io) {
+		if (!Body.Continue(tape, io)) {
+			this.Body.Run(tape, io);
+			Inside = false;
+			Body.JumpToStart();
+		}
+	}
 }
 
 record Comment(string Source, int Offset, string Message) : Instruction(Source, Offset) {

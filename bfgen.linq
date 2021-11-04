@@ -6,6 +6,26 @@
 void Main() {
 	ProgramBuilder builder = new() { GenerateComments = true };
     
+	/*
+	int i = builder.Allocate(nameof(i));
+	builder.Increment(i, 2);
+	using (builder.Loop(i)) {
+		builder.Decrement(i);
+
+		int t = builder.Allocate(nameof(t));
+		builder.Increment(t, 1);
+		using (builder.If(t)) {
+			int o = builder.Allocate(nameof(o));
+			builder.Increment(o, 33);
+			builder.MoveTo(o).Do('.');
+			builder.Release(o);
+		}
+		
+		builder.Release(t);
+	}
+	*/
+	
+	//*
 	int n = builder.Allocate(nameof(n));
 	int digit = builder.Allocate(nameof(digit));	
 	int ten = builder.Allocate(nameof(ten));
@@ -52,6 +72,7 @@ void Main() {
 		builder.Decrement(n);
 	}
 	builder.WriteNumber(n).NewLine();
+	//*/
 	
     builder.Build().Dump();
 }
@@ -72,7 +93,7 @@ class ProgramBuilder : IDisposable {
 		// Allocations in the current scope known to be zero at the time of first use.
         // They may need to be zeroed for the next loop iteration if one of them becomes possibly non-zero
         // before the end of the loop.
-        List<int> UnzeroedAllocations, 
+        HashSet<int> UnzeroedAllocations, 
 		CellDisposition[] States);
 
 	private class BlockStack {
@@ -171,7 +192,9 @@ class ProgramBuilder : IDisposable {
 		var (type, condition, unzeroed, states) = ControlBlocks.Current;
 		if (type != BlockType.If) throw new ($"Tried to end if, but was actually ${type}");
 		MoveTo(condition).Zero(condition).Do(']');
+		// if can't be repeated until an enclosing loop is repeated so just defer zeroing
 		ControlBlocks.Pop();
+		ControlBlocks.Current.UnzeroedAllocations.UnionWith(unzeroed);
 		States[condition] = CellDisposition.Zero;
 		return this;
 	}
@@ -201,12 +224,8 @@ class ProgramBuilder : IDisposable {
 			Named[var] = true;
 		}
         Allocated[var] = true;
-		if (States[var] != CellDisposition.Zero) {
-			Zero(var);
-		}
-		else if (!ControlBlocks.Current.UnzeroedAllocations.Contains(var)) {
-			ControlBlocks.Current.UnzeroedAllocations.Add(var);
-		}
+		if (States[var] != CellDisposition.Zero) Zero(var);
+		else ControlBlocks.Current.UnzeroedAllocations.Add(var);
         return var;
 	}
 	
