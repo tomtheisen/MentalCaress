@@ -8,7 +8,7 @@ const string SourceKey = "source", TapeNameKey = "names", InputKey = "input";
 void Main() {
     var run = Util.KeepRunning();
     
-	Util.HtmlHead.AddStyles(".current{background:#e628;} body{font-size:150%;}");
+	Util.HtmlHead.AddStyles(".current{background:#e628;}");
 	Util.HtmlHead.AddScript(@"
 		function scrollDebugger() {
 			setTimeout(() => {
