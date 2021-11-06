@@ -18,6 +18,12 @@ namespace MentalCaressCompiler {
 						vars[decl.Id.Name] = var;
 						break;
 					}
+					case AST.Declaration { Value: AST.Identifier source } decl: {
+						builder.AllocateAndCopy(out int var, vars[source.Name]);
+						if (vars.ContainsKey(decl.Id.Name)) throw new ($"Duplicate declaration { decl.Id.Name }");
+						vars[decl.Id.Name] = var;
+						break;
+					}
 					case AST.Copy { Source: AST.NumberLiteral num } copy:
 						builder.Zero(vars[copy.Target.Name]);
 						builder.Increment(vars[copy.Target.Name], num.Value);

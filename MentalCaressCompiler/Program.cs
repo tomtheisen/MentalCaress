@@ -5,7 +5,6 @@ using System.Linq;
 namespace MentalCaressCompiler {
     class Program {
         static void Main(string[] args) {
-            foreach (var arg in args) Console.WriteLine(arg);
             string inFile = args.Single(a => !a.StartsWith('-'));
             string? outFile = args.SingleOrDefault(a => a.StartsWith("-out="))?[5..];
             string source = File.ReadAllText(inFile);
