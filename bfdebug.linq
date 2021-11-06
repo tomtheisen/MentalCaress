@@ -12,7 +12,7 @@ void Main() {
 	Util.HtmlHead.AddScript(@"
 		function scrollDebugger() {
 			setTimeout(() => {
-				const currents = document.querySelectorAll('span.current');
+				const currents = document.querySelectorAll('span.current.instr');
 				const last = currents[currents.length - 1];
 				if (last) last.scrollIntoView(false);
 			}, 100);
@@ -44,12 +44,13 @@ void Main() {
     
     void Update() {
         string progDisplay = prog.GetDisplayString(true);
-		progDisplay = Regex.Replace(progDisplay, @"\^(\S+)", "<span class=current>$1</span>");
+		progDisplay = Regex.Replace(progDisplay, @"\^(\S+)", "<span class='current instr'>$1</span>");
         stepView.Content = Util.RawHtml(progDisplay);
-        tapeView.Content = tape.ToString();
+        tapeView.Content = Util.RawHtml(tape.ToString());
         output.Content = io.Output;
 		Util.InvokeScript(false, "scrollDebugger");
     }
+	io.Updated += (_, _) => Update();
     void Load(Button? _) {
         Util.SaveString(SourceKey, source.Text);
 		Util.SaveString(InputKey, input.Text);
@@ -88,13 +89,15 @@ void Main() {
 
 interface ITerminal {
     void Write(byte val);
-    byte Read();
+    byte? Read();
 }
 
 class BuilderIO : ITerminal {
 	private StringReader Input = new("");
     private StringBuilder Buffer = new();
-    
+	
+	public event EventHandler? Updated;
+	
     public string Output => Buffer.ToString();
     
     public void Reset(string input) {
@@ -102,27 +105,33 @@ class BuilderIO : ITerminal {
 		Input = new(input);
 	}
 	
-    public byte Read() => (byte)Math.Max(0, Input.Read());
+    public byte? Read() => Input.Read() is (int r and > 0) ? (byte)r : null;
 
-    public void Write(byte val) => Buffer.Append((char)val);
+    public void Write(byte val) {
+		Buffer.Append((char)val);
+		this.Updated?.Invoke(this, EventArgs.Empty);
+	}
 }
 
 class Tape {
     public override string ToString() {
         StringBuilder result = new();
 		const int CellWidth = 8;
+		result.Append("".PadLeft((InitialHead - LeftFrontier) * (CellWidth + 1)).Replace(" ", "&nbsp;"));
 		foreach (var t in TapeLabels) {
-			result.Append(t.Length < CellWidth ? t.PadRight(CellWidth) : t[..CellWidth]).Append(' ');
+			result.Append(t.Length < CellWidth ? 
+				t.PadRight(CellWidth).Replace(" ", "&nbsp;") : 
+				t[..CellWidth]).Append(' ');
 		}
-		result.AppendLine();
+		result.AppendLine("<p>");
         for (ushort i = LeftFrontier; i != RightFrontier + 1; i++) {
-            result.AppendFormat("{0:X2}:{1:X2}({2}) ", 
+            string cell = string.Format("{0:X2}:{1:X2}({2}) ", 
 				i - InitialHead & 0xff,
 				Memory[i], 
 				Memory[i] >= 32 && Memory[i] < 127 ? (char)Memory[i] : '?');
+			if (i == Head) cell = $"<span class=current>{ cell }</span>";
+			result.Append(cell);
         }
-        result.AppendLine();
-        result.AppendLine("^".PadLeft((ushort)(Head - LeftFrontier) * (CellWidth + 1) + 4));
         return result.ToString();
     }
 
@@ -234,7 +243,7 @@ record CharInstruction(string Source, int Offset, char Symbol, int Repeat = 1) :
             case '<': tape.Move((ushort)-Repeat); return true;
             case '>': tape.Move((ushort)Repeat); return true;
             case ',': 
-				for (int i = 0; i < Repeat; i++) tape.Write(io.Read());
+				for (int i = 0; i < Repeat; i++) if (io.Read() is byte b) tape.Write(b);
 				return true;
             case '.': 
                 for (int i = 0; i < Repeat; i++) io.Write(tape.Read());
