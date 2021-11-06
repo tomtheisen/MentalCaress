@@ -8,15 +8,16 @@
 void Main() {
     ProgramBuilder builder = new() { GenerateComments = true };
 	
-	var script = ScriptParser.Program.Parse(@"
+	
+	var script = ScriptParser.StatementList.Parse(@"
 		var x = 10
 		loop x {
 			x = x + 47
 			write x
-			x = x - 48
+			x = x - 47
 		}
+		x='a'
 	").Dump();
-	
 	Compile(script).Dump();
 	
 	/* all primes
@@ -105,7 +106,7 @@ void Main() {
 	}
 	//*/	
 	
-    /*
+    /* prime factorize input
 	builder.AllocateAndReadNumber(out int n);
     
     builder.Allocate(out int factor, 0, nameof(factor));
@@ -145,12 +146,17 @@ string Compile(IEnumerable<AST.Statement> statements) {
 	
 	void Build(AST.Statement statement) {
 		switch (statement) {
-			case AST.Declaration { Id: { Name: string name }, Value: AST.NumberLiteral val }: {
+			case AST.Declaration { Value: AST.NumberLiteral val } decl: {
 				builder.Allocate(out int var, val.Value);
-				if (vars.ContainsKey(name)) throw new ($"Duplicate declaration { name }");
-				vars[name] = var;
+				if (vars.ContainsKey(decl.Id.Name)) throw new ($"Duplicate declaration { decl.Id.Name }");
+				vars[decl.Id.Name] = var;
 				break;
 			}
+			case AST.Copy { Source: AST.NumberLiteral num } copy:
+				builder.Zero(vars[copy.Target.Name]);
+				builder.Increment(vars[copy.Target.Name], num.Value);
+				break;
+			
 			case AST.Block { Type: AST.BlockType.Loop, Control: var control, Body: var body }:
 				builder.Loop(vars[control.Name]);
 				foreach (var s in body) Build(s);
@@ -221,11 +227,19 @@ static class ScriptParser {
 		.Text()
 		.Select(lod => new AST.Identifier(lod));
 		
-	static Parser<AST.NumberLiteral> Literal => 
+	static Parser<AST.NumberLiteral> NumberLiteral => 
 		from digits in Parse.Number.Contained(Parse.Char(' ').Many(), Parse.Char(' ').Many())
 		let val = int.Parse(digits)
 		where val <= byte.MaxValue
 		select new AST.NumberLiteral((byte)val);
+		
+	static Parser<AST.NumberLiteral> CharLiteral =>
+		from s1 in Parse.Char(' ').Many()
+		from ch in Parse.AnyChar.Contained(Parse.Char('\''), Parse.Char('\''))
+		from s2 in Parse.Char(' ').Many()
+		select new AST.NumberLiteral((byte)ch);
+		
+	static Parser<AST.NumberLiteral> Literal => NumberLiteral.Or(CharLiteral);
 		
 	static Parser<AST.Value> Value => AnyOf<AST.Value>(Literal, Identifier);
 	
@@ -251,7 +265,7 @@ static class ScriptParser {
 		select new AST.Copy(target, source);
 		
 	public static Parser<AST.Operation> Action =>
-		from action in AnyOf("read", "write", "writenum")
+		from action in AnyOf("read", "readnum", "write", "writenum")
 		from s1 in Parse.Char(' ').AtLeastOnce()
 		from id in Identifier
 		select new AST.Operation(action, id);
@@ -267,14 +281,24 @@ static class ScriptParser {
 		from type in BlockType
 		from control in Identifier
 		from open in Parse.Char('{').Token()
+		from c1 in Comment.Optional()
 		from body in StatementList
-		from close in Parse.Char('}').Token()
+		from indent in Indent
+		from close in Parse.Char('}')
+		from c2 in Comment.Optional()
 		select new AST.Block(type, control, body.ToArray());
+	
+	public static Parser<string> Comment =>
+		from s in Parse.Chars(" \t").Many()
+		from hash in Parse.Char('#')
+		from content in Parse.CharExcept("\r\n").Many().Text()
+		select content;
 	
 	public static Parser<AST.Statement> Statement => 
 		from s1 in Indent
 		from statement in AnyOf<AST.Statement>(Declaration, OperateAssign, Copy, Action, Block)
-		from s2 in Terminator
+		from comment in Comment.Optional()
+		from s3 in Terminator
 		select statement;
 		
 	public static Parser<string> BlankLines =>
