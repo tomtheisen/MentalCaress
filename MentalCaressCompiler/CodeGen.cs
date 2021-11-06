@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MentalCaressCompiler {
     static class CodeGen {
@@ -47,11 +44,19 @@ namespace MentalCaressCompiler {
 						builder.Decrement(vars[assign.Target.Name], b.Value);
 						break;
 				
-					case AST.Action { Type: "write" } op:
+					case AST.Action0 { Type: "writeline" }:
+						builder.NewLine();
+						break;
+
+					case AST.Action1 { Type: "write" } op:
 						builder.MoveTo(vars[op.Id.Name]).Do('.');
 						break;
-					case AST.Action { Type: "readnum" } op:
+					case AST.Action1 { Type: "readnum" } op:
 						builder.ReadNumber(vars[op.Id.Name]);
+						break;
+
+					case AST.WriteText wl:
+						builder.WriteString(wl.Message);
 						break;
 				
 					default: throw new ($"No codegen for ast node ${ statement }");

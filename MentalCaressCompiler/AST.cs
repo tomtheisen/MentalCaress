@@ -8,7 +8,9 @@
 	public record OperateAssign(Identifier Target, Value A, char Operator, Value B) : Statement;
 	public record Copy(Identifier Target, Value Source) : Statement;
 	
-	public record Action(string Type, Identifier Id) : Statement;
+	public record Action0(string Type) : Statement;
+	public record Action1(string Type, Identifier Id) : Statement;
+	public record WriteText(string Message) : Statement;
 	
 	public enum BlockType { Loop, If, IfNot }
 	public record Block(BlockType Type, Identifier Control, Statement[] Body) : Statement;

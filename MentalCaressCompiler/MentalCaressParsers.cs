@@ -66,11 +66,22 @@ namespace MentalCaressCompiler {
 			from source in Value
 			select new AST.Copy(target, source);
 		
-		public static Parser<AST.Action> Action =>
+		public static Parser<AST.Action0> Action0 =>
+			from action in AnyOf("writeline")
+			select new AST.Action0(action);
+
+		public static Parser<AST.Action1> Action1 =>
 			from action in AnyOf("readnum", "read", "writenum", "write")
-			from s1 in Parse.Char(' ').Many()
+			from s1 in Parse.Char(' ').AtLeastOnce()
 			from id in Identifier
-			select new AST.Action(action, id);
+			select new AST.Action1(action, id);
+
+		public static Parser<AST.WriteText> WriteText =>
+			from action in Parse.String("writetext")
+			from s1 in Parse.Char(' ').AtLeastOnce()
+			from q1 in Parse.Char('"')
+			from message in Parse.AnyChar.Until(Parse.Char('"')).Text()
+			select new AST.WriteText(message);
 	
 		public static Parser<AST.BlockType> BlockType 
 			=> AnyOf(
@@ -98,7 +109,14 @@ namespace MentalCaressCompiler {
 	
 		public static Parser<AST.Statement> Statement => 
 			from s1 in Indent
-			from statement in AnyOf<AST.Statement>(Declaration, OperateAssign, Copy, Action, Block)
+			from statement in AnyOf<AST.Statement>(
+				Declaration, 
+				OperateAssign, 
+				Copy, 
+				Action0, 
+				Action1, 
+				WriteText,
+				Block)
 			from comment in Comment.Optional()
 			from s3 in Terminator
 			select statement;

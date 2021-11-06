@@ -6,9 +6,14 @@ namespace BrainfuckRun {
     class Program {
         static void Main(string[] args) {
             string filename = args[0];
-            string source = File.ReadAllText(filename);
-            var ast = Parse(source);
-            ast.Run(new (), new Terminal());
+            try {
+                string source = File.ReadAllText(filename);
+                var ast = Parse(source);
+                ast.Run(new (), new Terminal());
+            }
+            catch (IOException ex) {
+                Console.Error.WriteLine(ex.Message);
+            }
         }
 
         static BrainfuckProgram Parse(string prog) {

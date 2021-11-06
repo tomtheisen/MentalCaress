@@ -19,7 +19,7 @@ namespace MentalCaressCompiler {
                 }
             }
             catch (Sprache.ParseException ex) {
-				Console.Error.WriteLine("{0}:{1} {2}", ex.Position.Line, ex.Position.Column, ex.Message);
+				Console.Error.WriteLine(ex.Message);
             }
         }
 
