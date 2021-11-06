@@ -8,14 +8,16 @@
 void Main() {
     ProgramBuilder builder = new() { GenerateComments = true };
 	
-	ScriptParser.Program.Parse(@"
-		var x = 0
+	var script = ScriptParser.Program.Parse(@"
+		var x = 10
 		loop x {
 			x = x + 47
 			write x
 			x = x - 48
 		}
 	").Dump();
+	
+	Compile(script).Dump();
 	
 	/* all primes
 	builder.Allocate(out int p, 1, nameof(p));
@@ -137,14 +139,51 @@ void Main() {
     builder.Build().Dump();
 }
 
-abstract record CellDisposition();
-record KnownValue(byte Value) : CellDisposition;
-record UnknownValue() : CellDisposition;
+string Compile(IEnumerable<AST.Statement> statements) {
+	ProgramBuilder builder = new();
+	Dictionary<string, int> vars = new();
+	
+	void Build(AST.Statement statement) {
+		switch (statement) {
+			case AST.Declaration { Id: { Name: string name }, Value: AST.NumberLiteral val }: {
+				builder.Allocate(out int var, val.Value);
+				if (vars.ContainsKey(name)) throw new ($"Duplicate declaration { name }");
+				vars[name] = var;
+				break;
+			}
+			case AST.Block { Type: AST.BlockType.Loop, Control: var control, Body: var body }:
+				builder.Loop(vars[control.Name]);
+				foreach (var s in body) Build(s);
+				builder.EndLoop();
+				break;
+			case AST.OperateAssign { Operator: '+', B: AST.NumberLiteral b } assign 
+				when assign.Target == assign.A:
+				builder.Increment(vars[assign.Target.Name], b.Value);
+				break;
+			case AST.OperateAssign { Operator: '-', B: AST.NumberLiteral b } assign 
+				when assign.Target == assign.A:
+				builder.Decrement(vars[assign.Target.Name], b.Value);
+				break;
+				
+			case AST.Operation { Action: "write" } op:
+				builder.MoveTo(vars[op.Id.Name]).Do('.');
+				break;
+				
+			default: throw new ($"No mapping for ${ statement }");
+		}
+	}
+	
+	foreach (var statement in statements) {
+		Build(statement);
+	}
+	
+	return builder.Build();
+}
 
 namespace AST {
 	public record Value();
-	public record Identifier(string name) : Value;
-	public record NumberLiteral(byte value) : Value;
+	public record Identifier(string Name) : Value;
+	public record NumberLiteral(byte Value) : Value;
 
 	public record Statement();
 	public record Declaration(Identifier Id, Value Value) : Statement;
@@ -248,6 +287,10 @@ static class ScriptParser {
 		StatementList.End();
 
 }
+
+abstract record CellDisposition();
+record KnownValue(byte Value) : CellDisposition;
+record UnknownValue() : CellDisposition;
 
 class ProgramBuilder : IDisposable {
     const int MemorySize = 256;
