@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 namespace BrainfuckRun {
-    record BrainfuckProgram(IList<Instruction> Instructions) {
+    public record BrainfuckProgram(IList<Instruction> Instructions) {
         private int ip = 0;
 
         public void Run(Tape tape, ITerminal io) {
@@ -13,7 +13,7 @@ namespace BrainfuckRun {
         }
     }
 
-    abstract record Instruction(string Source, int Offset) {
+    public abstract record Instruction(string Source, int Offset) {
         public abstract void Run(Tape tape, ITerminal io);
     }
 

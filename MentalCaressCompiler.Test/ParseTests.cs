@@ -48,7 +48,9 @@ namespace MentalCaressCompiler.Test {
         }
 
         [Fact]
-        public void LeapFullTest() {
+        public void LeapFullParseTest() {
+            var path = Environment.CurrentDirectory;
+
             var source = @"
                 var y1 = 1
                 var y2 = 8
@@ -110,5 +112,9 @@ namespace MentalCaressCompiler.Test {
             Assert.NotNull(bf);
         }
 
+        [Fact]
+        public void LeapFullTest() {
+
+        }
     }
 }

@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\BrainfuckRun\BrainfuckRun.csproj" />
     <ProjectReference Include="..\MentalCaressCompiler\MentalCaressCompiler.csproj" />
   </ItemGroup>
 

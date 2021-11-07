@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BrainfuckRun {
-    class Tape {
+    public class Tape {
         private byte[] Memory = new byte[0x10000];
         private const ushort InitialHead = 0x8000;
         private ushort Head = InitialHead;
