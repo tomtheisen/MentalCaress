@@ -1,4 +1,4 @@
-var y1 = '1'
+var y1 = 1
 var y2 = 8
 var y3 = 0
 var y4 = 0
@@ -34,21 +34,29 @@ loop working {
     show = show + y3
     show = show + y4
     if show {
+        var twelve = 12
+        loop twelve {
+            twelve = twelve - 1
+            y1 = y1 + 4
+            y2 = y2 + 4
+            y3 = y3 + 4
+            y4 = y4 + 4
+        }
+
         write y1
-
-        y2 = y2 + 48
         write y2
-        y2 = y2 - 48
-
-        y3 = y3 + 48
         write y3
-        y3 = y3 - 48
-
-        y4 = y4 + 48
         write y4
-        y4 = y4 - 48
-
         writeline
+
+        twelve = 12
+        loop twelve {
+            twelve = twelve - 1
+            y1 = y1 - 4
+            y2 = y2 - 4
+            y3 = y3 - 4
+            y4 = y4 - 4
+        }
     }
 
     working = y2 - 4
