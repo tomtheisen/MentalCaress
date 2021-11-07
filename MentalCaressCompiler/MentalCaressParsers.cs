@@ -85,27 +85,26 @@ namespace MentalCaressCompiler {
 	
 		public static Parser<AST.BlockType> BlockType 
 			=> AnyOf(
-				Parse.String("if").Select(_ => AST.BlockType.If),
 				Parse.String("ifnot").Select(_ => AST.BlockType.IfNot),
+				Parse.String("if").Select(_ => AST.BlockType.If),
 				Parse.String("loop").Select(_ => AST.BlockType.Loop)
 			);
 		
 		public static Parser<AST.Block> Block => 
 			from type in BlockType
 			from control in Identifier
-			from open in Parse.Char('{').Token()
-			from c1 in Comment.Optional()
+			from open in Parse.Char('{')
+			from s1 in Parse.Char(' ').Many()
 			from body in StatementList
 			from indent in Indent
 			from close in Parse.Char('}')
-			from c2 in Comment.Optional()
 			select new AST.Block(type, control, body.ToArray());
 	
-		public static Parser<string> Comment =>
+		public static Parser<AST.Comment> Comment =>
 			from s in Parse.Chars(" \t").Many()
 			from hash in Parse.Char('#')
 			from content in Parse.CharExcept("\r\n").Many().Text()
-			select content;
+			select new AST.Comment(content);
 	
 		public static Parser<AST.Statement> Statement => 
 			from s1 in Indent
@@ -116,8 +115,8 @@ namespace MentalCaressCompiler {
 				Action0, 
 				Action1, 
 				WriteText,
-				Block)
-			from comment in Comment.Optional()
+				Block,
+				Comment)
 			from s3 in Terminator
 			select statement;
 		

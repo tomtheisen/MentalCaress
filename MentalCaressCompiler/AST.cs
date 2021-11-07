@@ -7,6 +7,7 @@
 	public record Declaration(Identifier Id, Value Value) : Statement;
 	public record OperateAssign(Identifier Target, Value A, char Operator, Value B) : Statement;
 	public record Copy(Identifier Target, Value Source) : Statement;
+	public record Comment(string Message) : Statement;
 	
 	public record Action0(string Type) : Statement;
 	public record Action1(string Type, Identifier Id) : Statement;

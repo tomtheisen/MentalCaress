@@ -7,10 +7,11 @@ namespace MentalCaressCompiler {
         static void Main(string[] args) {
             string inFile = args.Single(a => !a.StartsWith('-'));
             string? outFile = args.SingleOrDefault(a => a.StartsWith("-out="))?[5..];
+            bool comments = args.Contains("-c");
             string source = File.ReadAllText(inFile);
 
             try {
-                string bf = Compile(source);
+                string bf = Compile(source, comments);
                 if (string.IsNullOrEmpty(outFile)) {
                     Console.WriteLine(bf);
                 }
@@ -23,9 +24,9 @@ namespace MentalCaressCompiler {
             }
         }
 
-		static string Compile(string mcsource) {
+		static string Compile(string mcsource, bool comments) {
             var ast = MentalCaressParsers.ParseProgram(mcsource);
-            var bf = CodeGen.FromAST(ast);
+            var bf = CodeGen.FromAST(ast, comments);
             return bf;
         }
     }
