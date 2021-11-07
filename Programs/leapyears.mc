@@ -1,4 +1,4 @@
-var y1 = 1
+var y1 = '1'
 var y2 = 8
 var y3 = 0
 var y4 = 0
@@ -24,23 +24,32 @@ loop working {
         }
     }
 
-    y1 = y1 + 48
-    write y1
-    y1 = y1 - 48
+    var show = 0
+    # show = not y2
+    show = not y2
+    # working = y2 - 4
+    working = y2 - 4
+    working = not working
+    show = show + working
+    show = show + y3
+    show = show + y4
+    if show {
+        write y1
 
-    y2 = y2 + 48
-    write y2
-    y2 = y2 - 48
+        y2 = y2 + 48
+        write y2
+        y2 = y2 - 48
 
-    y3 = y3 + 48
-    write y3
-    y3 = y3 - 48
+        y3 = y3 + 48
+        write y3
+        y3 = y3 - 48
 
-    y4 = y4 + 48
-    write y4
-    y4 = y4 - 48
+        y4 = y4 + 48
+        write y4
+        y4 = y4 - 48
 
-    writeline
+        writeline
+    }
 
     working = y2 - 4
 }

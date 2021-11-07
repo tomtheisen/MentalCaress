@@ -59,6 +59,15 @@ namespace MentalCaressCompiler {
 			from op in Parse.Chars("-+/*%")
 			from b in Value
 			select new AST.OperateAssign(target, a, op, b);
+
+		public static Parser<AST.NotAssign> NotAssign =>
+			from target in Identifier
+			from eq in Parse.Char('=')
+			from s1 in Parse.Char(' ').Many()
+			from not in Parse.String("not")
+			from s2 in Parse.Char(' ').AtLeastOnce()
+			from val in Identifier
+			select new AST.NotAssign(target, val);
 		
 		public static Parser<AST.Copy> Copy =>
 			from target in Identifier
@@ -94,7 +103,7 @@ namespace MentalCaressCompiler {
 			from type in BlockType
 			from control in Identifier
 			from open in Parse.Char('{')
-			from s1 in Parse.Char(' ').Many()
+			from t1 in Terminator
 			from body in StatementList
 			from indent in Indent
 			from close in Parse.Char('}')
@@ -110,6 +119,7 @@ namespace MentalCaressCompiler {
 			from s1 in Indent
 			from statement in AnyOf<AST.Statement>(
 				Declaration, 
+				NotAssign,
 				OperateAssign, 
 				Copy, 
 				Action0, 

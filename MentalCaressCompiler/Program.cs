@@ -12,6 +12,7 @@ namespace MentalCaressCompiler {
 
             try {
                 string bf = Compile(source, comments);
+                Console.WriteLine("Size: {0}", bf.Length);
                 if (string.IsNullOrEmpty(outFile)) {
                     Console.WriteLine(bf);
                 }
