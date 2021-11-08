@@ -4,21 +4,32 @@ using System.Linq;
 using System.Text;
 
 namespace MentalCaressCompiler {
+    record TapeState();
+    record UnknownValue() : TapeState;
+    record KnownValue(byte Value) : TapeState;
+
     class ProgramBuilder : IDisposable {
         const int MemorySize = 256;
 
         private enum BlockType { Top, Loop, If }
-        private record Block(BlockType Type, int ControlVariable, List<int> LocalVariables);
+        private record Block(BlockType Type, int ControlVariable, List<int> LocalVariables, TapeState[] State);
 
         private class BlockStack {
             private readonly Stack<Block> ControlBlocks = new();
-        
+
             public BlockStack() {
-                ControlBlocks.Push(new(BlockType.Top, -1, new()));
+                var state = new TapeState[MemorySize];
+                Array.Fill(state, new KnownValue(0));
+                ControlBlocks.Push(new(BlockType.Top, -1, new(), state));
             }
 
             public void Push(BlockType type, int controlVariable) {
-                ControlBlocks.Push(new(type, controlVariable, new()));
+                TapeState[] newState = type switch {
+                    BlockType.If => Current.State.ToArray(),
+                    BlockType.Loop => Enumerable.Repeat<TapeState>(new UnknownValue(), MemorySize).ToArray(),
+                    _ => throw new Exception("Can't push blocktype " + type),
+                };
+                ControlBlocks.Push(new(type, controlVariable, new(), newState));
             }
         
             public Block Pop() => ControlBlocks.Pop();
@@ -76,11 +87,14 @@ namespace MentalCaressCompiler {
         }
     
         public ProgramBuilder EndLoop() {
-            var (type, condition, locals) = ControlBlocks.Current;
+            var (type, condition, locals, state) = ControlBlocks.Pop();
             if (type != BlockType.Loop) throw new ($"Tried to end loop, but was actually ${type}");
-		    foreach (int var in locals.ToList()) Release(var);
+            for (int i = 0; i < MemorySize; i++) {
+                ControlBlocks.Current.State[i] = new UnknownValue();
+            }
             MoveTo(condition).Do(']');
-            ControlBlocks.Pop();
+		    Release(locals.ToArray());
+            ControlBlocks.Current.State[condition] = new KnownValue(0);
             return this;
         }
     
@@ -92,11 +106,16 @@ namespace MentalCaressCompiler {
         }
     
         public ProgramBuilder EndIf() {
-            var (type, condition, locals) = ControlBlocks.Current;
+            var (type, condition, locals, state) = ControlBlocks.Pop();
             if (type != BlockType.If) throw new ($"Tried to end if, but was actually ${type}");
-		    foreach (int var in locals.ToList()) Release(var);
+            for (int i = 0; i < MemorySize; i++) {
+                if (state[i] != ControlBlocks.Current.State[i]) {
+                    ControlBlocks.Current.State[i] = new UnknownValue();
+                }
+            }
             MoveTo(condition).Zero(condition).Do(']');
-            ControlBlocks.Pop();
+		    Release(locals.ToArray());
+            ControlBlocks.Current.State[condition] = new KnownValue(0);
             return this;
         }
     
@@ -110,7 +129,9 @@ namespace MentalCaressCompiler {
     
         /// <summary>x=0;</summary>
         public ProgramBuilder Zero(int var) {
-            using (Loop(var)) Decrement(var);
+            if (ControlBlocks.Current.State[var] != new KnownValue(0)) {
+                using (Loop(var)) Decrement(var);
+            }
             return this;
         }
     
@@ -156,43 +177,65 @@ namespace MentalCaressCompiler {
             Range = null;
         }
     
-        public ProgramBuilder Increment(int x, int times = 1) {
+        public ProgramBuilder Increment(int var, int times = 1) {
             times &= 0xff;
             if (times == 0) return this;
-            MoveTo(x);
+            MoveTo(var);
             if (times <= 128) Do(new string('+', times));
             else Do(new string('-', 256 - times));
+            if (ControlBlocks.Current.State[var] is KnownValue known) {
+                ControlBlocks.Current.State[var] = new KnownValue((byte)(known.Value + times));
+            }
             return this;
         }
 
-        public ProgramBuilder Decrement(int x, int times = 1) => Increment(x, -times);
+        public ProgramBuilder Decrement(int var, int times = 1) => Increment(var, -times);
         
+        /// <summary>variable is currently `old`, change it to `new`.</summary>
+        private ProgramBuilder SetValue(int var, byte old, byte @new) {
+            // todo: more efficient
+            Increment(var, @new - old);
+            ControlBlocks.Current.State[var] = new KnownValue(@new);
+            return this;
+        }
+
         /// <summary>acc += operand; operand = 0;</summary>
         public ProgramBuilder AddAndZero(int acc, int operand) {
+            TapeState st1 = ControlBlocks.Current.State[acc], st2 = ControlBlocks.Current.State[operand];
             using(Loop(operand)) {
                 Decrement(operand);
                 Increment(acc);
             }
+            ControlBlocks.Current.State[acc] = st1 is KnownValue k1 && st2 is KnownValue k2
+                ? new KnownValue((byte)(k1.Value + k2.Value))
+                : new UnknownValue();
             return this;
         }
     
         /// <summary>acc -= operand; operand = 0;</summary>
         public ProgramBuilder SubAndZero(int acc, int operand) {
+            TapeState st1 = ControlBlocks.Current.State[acc], st2 = ControlBlocks.Current.State[operand];
             using (Loop(operand)) {
                 Decrement(acc);
                 Decrement(operand);
             }
+            ControlBlocks.Current.State[acc] = st1 is KnownValue k1 && st2 is KnownValue k2
+                ? new KnownValue((byte)(k1.Value - k2.Value))
+                : new UnknownValue();
             return this;
         }
     
         /// <summary>target1=target2=source; source=0;</summary>
         public ProgramBuilder MoveTwice(int target1, int target2, int source) {
+            TapeState st = ControlBlocks.Current.State[source];
             Zero(target1).Zero(target2);
             using (Loop(source)) {
                 Decrement(source);
                 Increment(target1);
                 Increment(target2);
             }
+            ControlBlocks.Current.State[target1] = st;
+            ControlBlocks.Current.State[target2] = st;
             return this;
         }
         
@@ -222,11 +265,15 @@ namespace MentalCaressCompiler {
     
         /// <summary>target = operand1 * operand2; operand2 = 0;</summary>
         public ProgramBuilder Mul(int target, int operand1, int operand2) {
+            TapeState st1 = ControlBlocks.Current.State[operand1], st2 = ControlBlocks.Current.State[operand2];
             Zero(target);
             using (Loop(operand2)) {
                 Add(target, operand1);
                 Decrement(operand2);
             }
+            ControlBlocks.Current.State[target] = st1 is KnownValue k1 && st2 is KnownValue k2
+                ? new KnownValue((byte)(k1.Value * k2.Value))
+                : new UnknownValue();
             return this;
         }
     
@@ -256,6 +303,7 @@ namespace MentalCaressCompiler {
     
         /// <summary>target = numerator/denominator; numerator = 0;</summary>
         public ProgramBuilder Div(int target, int numerator, int denominator) {
+            TapeState st1 = ControlBlocks.Current.State[numerator], st2 = ControlBlocks.Current.State[denominator];
             AllocateAndCopy(out int progress, denominator, nameof(progress));
             Zero(target);
             using (Loop(numerator)) {
@@ -271,11 +319,15 @@ namespace MentalCaressCompiler {
                 }
                 Release(ztest);
             }
+            ControlBlocks.Current.State[target] = st1 is KnownValue k1 && st2 is KnownValue k2
+                ? new KnownValue((byte)(k1.Value / k2.Value))
+                : new UnknownValue();
             return this;
         }
     
         /// <summary>target = numerator % divisor; numerator = 0;</summary>
         public ProgramBuilder Mod(int target, int numerator, int divisor) {
+            TapeState st1 = ControlBlocks.Current.State[numerator], st2 = ControlBlocks.Current.State[divisor];
             Zero(target);
             using (Loop(numerator)) {
                 Decrement(numerator).Increment(target);
@@ -288,11 +340,15 @@ namespace MentalCaressCompiler {
                 }
                 Release(targetCopy, divisorCopy);
             }
+            ControlBlocks.Current.State[target] = st1 is KnownValue k1 && st2 is KnownValue k2
+                ? new KnownValue((byte)(k1.Value % k2.Value))
+                : new UnknownValue();
             return this;
         }
     
         /// <summary>div = numerator / divisor; mod = numerator % divisor; numerator = 0;</summary>
         public ProgramBuilder DivMod(int div, int mod, int numerator, int divisor) {
+            TapeState st1 = ControlBlocks.Current.State[numerator], st2 = ControlBlocks.Current.State[divisor];
             Zero(div).Zero(mod);
             using (Loop(numerator)) {
                 Decrement(numerator).Increment(mod);
@@ -305,6 +361,14 @@ namespace MentalCaressCompiler {
                     Increment(div);
                 }
                 Release(modCopy, divisorCopy);
+            }
+            if (st1 is KnownValue k1 && st2 is KnownValue k2) {
+                ControlBlocks.Current.State[div] = new KnownValue((byte)(k1.Value / k2.Value));
+                ControlBlocks.Current.State[mod] = new KnownValue((byte)(k1.Value % k2.Value));
+            }
+            else {
+                ControlBlocks.Current.State[div] = new UnknownValue();
+                ControlBlocks.Current.State[mod] = new UnknownValue();
             }
             return this;
         }
@@ -406,11 +470,43 @@ namespace MentalCaressCompiler {
             return this;
 	    }
 	
+        /// <summary>target = num * num;</summary>
 	    public ProgramBuilder Square(int target, int num) {
 		    AllocateAndCopy(out int _num, num);
 		    Mul(target, num, _num);
 		    Release(_num);
 		    return this;
 	    }
+
+        /// <summary>target = a && b ? 1 : 0; a = 0; b = ?;</summary>
+        public ProgramBuilder And(int target, int a, int b) {
+            TapeState st1 = ControlBlocks.Current.State[a], st2 = ControlBlocks.Current.State[b];
+            Zero(target);
+            using (If(a)) {
+                using (If(b)) {
+                    Increment(target);
+                }
+            }
+            ControlBlocks.Current.State[target] = st1 is KnownValue k1 && st2 is KnownValue k2
+                ? new KnownValue(k1.Value > 0 && k2.Value > 0 ? (byte)1 : (byte)0)
+                : new UnknownValue();
+            return this;
+        }
+
+        /// <summary>target = a || b ? 1 : 0; a = 0; b = 0;</summary>
+        public ProgramBuilder Or(int target, int a, int b) {
+            TapeState st1 = ControlBlocks.Current.State[a], st2 = ControlBlocks.Current.State[b];
+            Zero(target);
+            using (If(a)) {
+                Increment(target);
+            }
+            using (If(b)) {
+                Zero(target).Increment(target);
+            }
+            ControlBlocks.Current.State[target] = st1 is KnownValue k1 && st2 is KnownValue k2
+                ? new KnownValue(k1.Value > 0 || k2.Value > 0 ? (byte)1 : (byte)0)
+                : new UnknownValue();
+            return this;
+        }
     }
 }

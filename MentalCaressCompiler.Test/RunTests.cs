@@ -20,6 +20,13 @@ namespace MentalCaressCompiler.Test {
             return io.GetOutput();
         }
 
+        private void RunFileTest(string mcfile, string expectedOutput) {
+            string filename = Path.Combine(Environment.CurrentDirectory, "../../../..", "Programs", mcfile);
+            string mcsource = File.ReadAllText(filename);
+            string output = RunMentalCaress(mcsource);
+            Assert.Equal(expectedOutput, output);
+        }
+
         [Fact]
         public void BasicOutputTest() {
             string source = "var x='a'\nwrite x\nx=x+1\nwrite x";
@@ -29,15 +36,12 @@ namespace MentalCaressCompiler.Test {
 
         [Fact]
         public void LeapTest() {
-            string filename = Path.Combine(Environment.CurrentDirectory, "../../../..", "Programs", "leapyears.mc");
-            string mcsource = File.ReadAllText(filename);
-            string output = RunMentalCaress(mcsource);
             string expected = string.Concat( 
                 from year in Enumerable.Range(1800, 601)
                 where year % 4 == 0
                 where year % 400 == 0 || year % 100 > 0
                 select year + "\n");
-            Assert.Equal(expected, output);
+            RunFileTest("leapyears.mc", expected);
         }
     }
 }
