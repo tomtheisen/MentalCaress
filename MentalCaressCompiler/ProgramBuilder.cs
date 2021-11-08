@@ -8,7 +8,7 @@ namespace MentalCaressCompiler {
     record UnknownValue() : TapeState;
     record KnownValue(byte Value) : TapeState;
 
-    class ProgramBuilder : IDisposable {
+    public class ProgramBuilder : IDisposable {
         const int MemorySize = 256;
 
         private enum BlockType { Top, Loop, If }
@@ -241,8 +241,10 @@ namespace MentalCaressCompiler {
         
         /// <summary>x=y;</summary>
         public ProgramBuilder Copy(int target, int source) {
-            Allocate(out int temp, 0);
+            Allocate(out int temp, 0, nameof(temp));
+            Comment("Moving twice to copy");
             MoveTwice(target, temp, source);
+            Comment("Moving one copy back to source");
             AddAndZero(source, temp);
             Release(temp);
             return this;

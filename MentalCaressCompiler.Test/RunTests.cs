@@ -1,11 +1,8 @@
 ﻿using BrainfuckRun;
 using Sprache;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace MentalCaressCompiler.Test {
