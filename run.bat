@@ -7,5 +7,5 @@ echo.
 pause
 echo.
 echo Running...
-.\BrainfuckRun\bin\debug\net5.0\BrainfuckRun.exe %1.bf
+.\BrainfuckRun\bin\debug\net5.0\BrainfuckRun.exe -o %1.bf
 del %1.bf
