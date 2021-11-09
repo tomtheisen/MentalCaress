@@ -123,9 +123,11 @@ namespace MentalCaressCompiler {
 						builder.EndIf();
 						break;
 					case AST.Block { Type: AST.BlockType.IfNot } ifnot:
-						builder.IfNot(vars[ifnot.Control]);
+						builder.AllocateAndCopy(out int _ifnot, vars[ifnot.Control], nameof(_ifnot));
+						builder.IfNot(_ifnot);
 						foreach (var s in ifnot.Body) Build(s);
 						builder.EndIf();
+						builder.Release(_ifnot);
 						break;
 
 					default: throw new ($"No codegen for ast node ${ statement }");
