@@ -23,7 +23,7 @@ namespace MentalCaressCompiler {
 			from nl in LineEnd
 			select "";
 		
-		static Parser<AST.Identifier> Identifier => Parse.LetterOrDigit
+		static Parser<AST.Identifier> Identifier => Parse.LetterOrDigit.Or(Parse.Char('_'))
 			.AtLeastOnce()
 			.Contained(Parse.Char(' ').Many(), Parse.Char(' ').Many())
 			.Text()
