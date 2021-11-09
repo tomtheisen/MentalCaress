@@ -1,12 +1,12 @@
 var y1 = 1
-var y2 = 8
+var y2 = 4
 var y3 = 0
 var y4 = 0
 
-var working = 1
-loop working {
-    # adding 4 to y4
+loop y2 {
+    y2 = y2 + 4
     y4 = y4 + 4
+    var working = 0
     working = y4 / 10
     # testing carry
     if working {
@@ -24,12 +24,10 @@ loop working {
         }
     }
 
-    var show = 0
-    # show = not y2
-    show = not y2
-    # working = y2 - 4
     working = y2 - 4
     working = not working
+    var show = 0
+    show = not y2
     show = show + working
     show = show + y3
     show = show + y4
@@ -59,5 +57,5 @@ loop working {
         }
     }
 
-    working = y2 - 4
+    y2 = y2 - 4
 }
