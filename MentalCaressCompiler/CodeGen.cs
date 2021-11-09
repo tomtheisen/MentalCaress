@@ -29,6 +29,9 @@ namespace MentalCaressCompiler {
 						builder.Zero(vars[copy.Target]);
 						builder.Increment(vars[copy.Target], num.Value);
 						break;
+					case AST.Copy { Source: AST.Identifier source } copy:
+						builder.Copy(vars[copy.Target], vars[source]);
+						break;
 
 					case AST.NotAssign not: {
 						builder.AllocateAndCopy(out int _notop, vars[not.Value], nameof(_notop));
@@ -73,7 +76,14 @@ namespace MentalCaressCompiler {
 						builder.Copy(vars[assign.Target], vars[a]);
 						builder.Decrement(vars[assign.Target], b.Value);
 						break;
-					case AST.OperateAssign { A: AST.Identifier a, Operator: '/', B: AST.Identifier b } div
+                    case AST.OperateAssign { A: AST.Identifier a, Operator: '*', B: AST.NumberLiteral b } assign
+                        when assign.Target != a: {
+						builder.Allocate(out int _b, b.Value, nameof(_b));
+						builder.Mul(vars[assign.Target], vars[a], _b);
+						builder.Release(_b);
+						break;
+					}
+                    case AST.OperateAssign { A: AST.Identifier a, Operator: '/', B: AST.Identifier b } div
 						when div.Target != div.A && div.Target != div.B: { 
 						builder.AllocateAndCopy(out int _numerator, vars[a], nameof(_numerator));
 						builder.Div(vars[div.Target], _numerator, vars[b]);

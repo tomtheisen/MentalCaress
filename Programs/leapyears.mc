@@ -45,9 +45,10 @@ loop y2 {
         write y2
         write y3
         write y4
-        writeline
 
-        twelve = 12
+        twelve = 10
+        write twelve
+        twelve = twelve + 2
         loop twelve {
             twelve = twelve - 1
             y1 = y1 - 4
