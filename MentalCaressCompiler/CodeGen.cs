@@ -76,6 +76,20 @@ namespace MentalCaressCompiler {
 						builder.Copy(vars[assign.Target], vars[a]);
 						builder.Decrement(vars[assign.Target], b.Value);
 						break;
+					case AST.OperateAssign { Operator: '-', B: AST.Identifier b } assign 
+						when assign.Target == assign.A: {
+						builder.AllocateAndCopy(out int _b, vars[b], nameof(_b));
+						builder.SubAndZero(vars[assign.Target], _b);
+						builder.Release(_b);
+						break;
+					}
+					case AST.OperateAssign { A: AST.Identifier a, Operator: '-', B: AST.Identifier b } assign: {
+						builder.Copy(vars[assign.Target], vars[a]);
+						builder.AllocateAndCopy(out int _b, vars[b], nameof(_b));
+						builder.SubAndZero(vars[assign.Target], _b);
+						builder.Release(_b);
+						break;
+					}
                     case AST.OperateAssign { A: AST.Identifier a, Operator: '*', B: AST.NumberLiteral b } assign
                         when assign.Target != a: {
 						builder.Allocate(out int _b, b.Value, nameof(_b));
@@ -124,6 +138,7 @@ namespace MentalCaressCompiler {
 						break;
 					case AST.Block { Type: AST.BlockType.IfRelease } @if:
 						builder.IfRelease(vars[@if.Control]);
+						vars.Remove(@if.Control);
 						foreach (var s in @if.Body) Build(s);
 						builder.EndIf();
 						break;
@@ -133,7 +148,8 @@ namespace MentalCaressCompiler {
 						builder.EndIf();
 						break;
 					case AST.Block { Type: AST.BlockType.IfNotRelease } ifnot:
-						builder.IfNotAndZero(vars[ifnot.Control]);
+						builder.IfNotRelease(vars[ifnot.Control]);
+						vars.Remove(ifnot.Control);
 						foreach (var s in ifnot.Body) Build(s);
 						builder.EndIf();
 						break;

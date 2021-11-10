@@ -5,30 +5,40 @@ var y4 = 0
 
 loop y2 {
     y2 = y2 + 4
-    y4 = y4 + 4
-    var working = 0
-    working = y4 / 10
+
+    y4 = y4 - 8
+    var carry = 0
+    carry = not y4
+    y4 = y4 + 2
+    var _y4 = y4
+    !ifnot _y4 {
+        carry = carry + 1
+    }
+    y4 = y4 + 10
+
     # testing carry
-    if working {
+    if carry {
         y4 = y4 - 10
         y3 = y3 + 1
-        working = y3 - 10
-        ifnot working {
+        carry = y3 - 10
+        ifnot carry {
             y3 = 0
             y2 = y2 + 1
-            working = y2 - 10
-            !ifnot working {
+            carry = y2 - 10
+            !ifnot carry {
                 y2 = 0
                 y1 = y1 + 1
             }
         }
     }
 
-    working = y2 - 4
-    working = not working
     var show = 0
     show = not y2
-    show = show + working
+    y2 = y2 - 4
+    var _y2 = y2
+    !ifnot _y2 {
+        show = show + 1
+    }
     show = show + y3
     show = show + y4
     !if show {
@@ -42,7 +52,9 @@ loop y2 {
         }
 
         write y1
+        y2 = y2 + 4
         write y2
+        y2 = y2 - 4
         write y3
         write y4
 
@@ -57,6 +69,4 @@ loop y2 {
             y4 = y4 - 4
         }
     }
-
-    y2 = y2 - 4
 }
