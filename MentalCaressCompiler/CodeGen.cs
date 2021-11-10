@@ -125,6 +125,10 @@ namespace MentalCaressCompiler {
 					case AST.Action1 { Type: "readnum" } op:
 						builder.ReadNumber(vars[op.Id]);
 						break;
+					case AST.Action1 { Type: "release" } op:
+						builder.Release(vars[op.Id]);
+						vars.Remove(op.Id);
+						break;
 
 					case AST.Block { Type: AST.BlockType.Loop } loop:
 						builder.Loop(vars[loop.Control]);

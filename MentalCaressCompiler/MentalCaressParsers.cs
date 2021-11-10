@@ -80,7 +80,7 @@ namespace MentalCaressCompiler {
 			select new AST.Action0(action);
 
 		public static Parser<AST.Action1> Action1 =>
-			from action in AnyOf("readnum", "read", "writenum", "write")
+			from action in AnyOf("readnum", "read", "writenum", "write", "release")
 			from s1 in Parse.Char(' ').AtLeastOnce()
 			from id in Identifier
 			select new AST.Action1(action, id);

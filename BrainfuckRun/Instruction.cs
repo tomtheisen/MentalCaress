@@ -43,7 +43,9 @@ namespace BrainfuckRun {
         public override void Serialize(StringBuilder builder, bool optimize) {
             for (int i = 0; i < Repeat; i++) {
                 char inverse = Symbol switch { '-' => '+', '+' => '-', '<' => '>', '>' => '<', _ => '?' };
-                if (builder.Length == 0) builder.Append(Symbol);
+                if (builder.Length == 0) {
+                    if (!"<>".Contains(Symbol)) builder.Append(Symbol);
+                }
                 else if (builder[^1] == inverse) --builder.Length;
                 else builder.Append(Symbol);
             }
