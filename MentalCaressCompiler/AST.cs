@@ -14,6 +14,6 @@
 	public record Action1(string Type, Identifier Id) : Statement;
 	public record WriteText(string Message) : Statement;
 	
-	public enum BlockType { Loop, If, IfNot }
+	public enum BlockType { Loop, If, IfNot, IfRelease, IfNotRelease }
 	public record Block(BlockType Type, Identifier Control, Statement[] Body) : Statement;
 }

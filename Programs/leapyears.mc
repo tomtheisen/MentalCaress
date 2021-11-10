@@ -17,7 +17,7 @@ loop y2 {
             y3 = 0
             y2 = y2 + 1
             working = y2 - 10
-            ifnot working {
+            !ifnot working {
                 y2 = 0
                 y1 = y1 + 1
             }
@@ -31,7 +31,7 @@ loop y2 {
     show = show + working
     show = show + y3
     show = show + y4
-    if show {
+    !if show {
         var twelve = 12
         loop twelve {
             twelve = twelve - 1

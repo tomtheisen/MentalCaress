@@ -4,8 +4,8 @@ using System.Text;
 
 namespace MentalCaressCompiler.Test {
     class SimulatedTerminal : ITerminal {
-        private StringBuilder Output = new();
-        private byte[] Input;
+        private readonly StringBuilder Output = new();
+        private readonly byte[] Input;
         private int Next = 0;
 
         public SimulatedTerminal(string input = "") {

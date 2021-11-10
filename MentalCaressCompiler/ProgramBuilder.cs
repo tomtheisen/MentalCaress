@@ -38,13 +38,14 @@ namespace MentalCaressCompiler {
 		
 		    public int Depth => ControlBlocks.Count;
         }
-        BlockStack ControlBlocks = new();
+
+        readonly BlockStack ControlBlocks = new();
     
         public bool GenerateComments { get; set; } = true;
 
-        private StringBuilder Program = new();
+        private readonly StringBuilder Program = new();
         private int Head;
-        private bool[] Allocated = new bool[MemorySize];
+        private readonly bool[] Allocated = new bool[MemorySize];
     
         public string Build() => Program.ToString();
     
@@ -67,7 +68,7 @@ namespace MentalCaressCompiler {
     
         public ProgramBuilder Comment(string comment, bool showStack = true) {
             if (!GenerateComments) return this;
-            if (Program.Length != 0 && Program[Program.Length - 1] != '\n') Do('\n');
+            if (Program.Length != 0 && Program[^1] != '\n') Do('\n');
             if (showStack) {
                 var frames = new System.Diagnostics.StackTrace(1).GetFrames();
                 var stackNames = frames
@@ -99,7 +100,15 @@ namespace MentalCaressCompiler {
         }
     
         /// <summary>if (condition) { condition = 0; </summary>
-        public ProgramBuilder If(int condition) {
+        public ProgramBuilder IfAndZero(int condition) {
+            ControlBlocks.Push(BlockType.If, condition);
+            MoveTo(condition).Do('[');
+            return this;
+        }
+    
+        /// <summary>if (condition) { condition = 0; </summary>
+        public ProgramBuilder IfRelease(int condition) {
+            Release(condition);
             ControlBlocks.Push(BlockType.If, condition);
             MoveTo(condition).Do('[');
             return this;
@@ -143,7 +152,7 @@ namespace MentalCaressCompiler {
             return this;
         }
     
-        private bool[] Named = new bool[MemorySize];
+        private readonly bool[] Named = new bool[MemorySize];
         public ProgramBuilder Allocate(out int var, byte value, string? debugName = default) {
             var = Array.IndexOf(Allocated, false);
             if (var >= Range - 1) throw new ("failed to allocate. no memory free.");
@@ -161,21 +170,7 @@ namespace MentalCaressCompiler {
             foreach (int var in vars) Release(var);
         }
     
-        private int? Range = null;
-        [Obsolete]
-        public ProgramBuilder AllocateRange(out int range, int additionalAllocationBuffer = 0) {
-            if (Range.HasValue) throw new ("can't allocate multiple ranges");
-            range = Array.LastIndexOf(Allocated, true) + 2 + additionalAllocationBuffer;
-            Comment($"Allocated range at { range } leaving buffer of { additionalAllocationBuffer }");
-            Range = range;
-            return this;
-        }
-    
-        [Obsolete]
-        public void ReleaseRange() {
-            if (!Range.HasValue) throw new ("no range to release");
-            Range = null;
-        }
+        private readonly int? Range = null;
     
         public ProgramBuilder Increment(int var, int times = 1) {
             times &= 0xff;
@@ -282,17 +277,26 @@ namespace MentalCaressCompiler {
         /// <summary>target = operand == 0 ? 1 : 0; operand = 0;</summary>
         public ProgramBuilder Not(int target, int operand) {
             Zero(target).Increment(target);
-            using(If(operand)) {
+            using(IfAndZero(operand)) {
                 Zero(target);
             }
             return this;
         }
 
 	    /// <summary>if (condition == 0) { ... } condition = 0; </summary>
-	    public ProgramBuilder IfNot(int condition) {
+	    public ProgramBuilder IfNotAndZero(int condition) {
 		    Allocate(out int not, 0);
 		    Not(not, condition);
-		    If(not);
+		    IfAndZero(not);
+		    return this;
+	    }
+    
+	    /// <summary>if (condition == 0) { ... } condition = 0; </summary>
+	    public ProgramBuilder IfNotRelease(int condition) {
+		    Allocate(out int not, 0);
+		    Not(not, condition);
+            Release(condition, not);
+		    IfAndZero(not);
 		    return this;
 	    }
     
@@ -315,7 +319,7 @@ namespace MentalCaressCompiler {
                 AllocateAndCopy(out int progresscopy, progress, nameof(progresscopy));
                 Not(ztest, progresscopy);
                 Release(progresscopy);
-                using (If(ztest)) {
+                using (IfAndZero(ztest)) {
                     Copy(progress, denominator);
                     Increment(target);
                 }
@@ -337,7 +341,7 @@ namespace MentalCaressCompiler {
                 AllocateAndCopy(out int targetCopy, target, nameof(targetCopy));
                 AllocateAndCopy(out int divisorCopy, divisor, nameof(divisorCopy));
                 Eq(targetCopy, divisorCopy);
-                using (If(targetCopy)) {
+                using (IfAndZero(targetCopy)) {
                     Zero(target);
                 }
                 Release(targetCopy, divisorCopy);
@@ -358,7 +362,7 @@ namespace MentalCaressCompiler {
                 AllocateAndCopy(out int modCopy, mod, nameof(modCopy));
                 AllocateAndCopy(out int divisorCopy, divisor, nameof(divisorCopy));
                 Eq(modCopy, divisorCopy);
-                using (If(modCopy)) {
+                using (IfAndZero(modCopy)) {
                     Zero(mod);
                     Increment(div);
                 }
@@ -405,17 +409,6 @@ namespace MentalCaressCompiler {
             return this;
         }
     
-        /// <summary>insert a 0 at the head of the current range</summary>
-        [Obsolete]
-        public ProgramBuilder PushRange() {
-            MoveTo(Range!.Value);
-        
-            Do("[>]<"); // go to last element
-            Do("[[->+<]<]>"); // they all rolled over
-        
-            return this;
-        }
-	
 	    public ProgramBuilder MoveToStack(int var) {
 		    Comment("Moving to stack");
 		    MoveTo(0).Do("<<[<]>").Do("[[-<+>]>]>");
@@ -484,8 +477,8 @@ namespace MentalCaressCompiler {
         public ProgramBuilder And(int target, int a, int b) {
             TapeState st1 = ControlBlocks.Current.State[a], st2 = ControlBlocks.Current.State[b];
             Zero(target);
-            using (If(a)) {
-                using (If(b)) {
+            using (IfAndZero(a)) {
+                using (IfAndZero(b)) {
                     Increment(target);
                 }
             }
@@ -499,10 +492,10 @@ namespace MentalCaressCompiler {
         public ProgramBuilder Or(int target, int a, int b) {
             TapeState st1 = ControlBlocks.Current.State[a], st2 = ControlBlocks.Current.State[b];
             Zero(target);
-            using (If(a)) {
+            using (IfAndZero(a)) {
                 Increment(target);
             }
-            using (If(b)) {
+            using (IfAndZero(b)) {
                 Zero(target).Increment(target);
             }
             ControlBlocks.Current.State[target] = st1 is KnownValue k1 && st2 is KnownValue k2

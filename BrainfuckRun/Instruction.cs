@@ -44,7 +44,7 @@ namespace BrainfuckRun {
             for (int i = 0; i < Repeat; i++) {
                 char inverse = Symbol switch { '-' => '+', '+' => '-', '<' => '>', '>' => '<', _ => '?' };
                 if (builder.Length == 0) builder.Append(Symbol);
-                else if (builder[builder.Length - 1] == inverse) --builder.Length;
+                else if (builder[^1] == inverse) --builder.Length;
                 else builder.Append(Symbol);
             }
         }

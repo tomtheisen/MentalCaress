@@ -2,7 +2,7 @@
 
 namespace BrainfuckRun {
     public class Tape {
-        private byte[] Memory = new byte[0x10000];
+        private readonly byte[] Memory = new byte[0x10000];
         private const ushort InitialHead = 0x8000;
         private ushort Head = InitialHead;
         private ushort LeftFrontier = InitialHead;

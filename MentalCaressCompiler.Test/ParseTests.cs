@@ -18,6 +18,7 @@ namespace MentalCaressCompiler.Test {
             var source = @"ifnot working {
                 }";
             var prog = MentalCaressParsers.Block.Parse(source);
+            Assert.NotNull(prog);
         }
 
         [Fact]

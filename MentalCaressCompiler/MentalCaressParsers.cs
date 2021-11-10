@@ -94,6 +94,8 @@ namespace MentalCaressCompiler {
 	
 		public static Parser<AST.BlockType> BlockType 
 			=> AnyOf(
+				Parse.String("!ifnot").Select(_ => AST.BlockType.IfNotRelease),
+				Parse.String("!if").Select(_ => AST.BlockType.IfRelease),
 				Parse.String("ifnot").Select(_ => AST.BlockType.IfNot),
 				Parse.String("if").Select(_ => AST.BlockType.If),
 				Parse.String("loop").Select(_ => AST.BlockType.Loop)

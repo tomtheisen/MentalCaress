@@ -7,7 +7,7 @@ using Xunit;
 
 namespace MentalCaressCompiler.Test {
     public class RunTests {
-        private string RunMentalCaress(string source, string input = "") {
+        private static string RunMentalCaress(string source, string input = "") {
             var mcast = MentalCaressParsers.Program.Parse(source);
             var bf = CodeGen.FromAST(mcast);
             var bfast = BrainfuckParse.Parse(bf);
@@ -17,7 +17,7 @@ namespace MentalCaressCompiler.Test {
             return io.GetOutput();
         }
 
-        private void RunFileTest(string mcfile, string expectedOutput) {
+        private static void RunFileTest(string mcfile, string expectedOutput) {
             string filename = Path.Combine(Environment.CurrentDirectory, "../../../..", "Programs", mcfile);
             string mcsource = File.ReadAllText(filename);
             string output = RunMentalCaress(mcsource);

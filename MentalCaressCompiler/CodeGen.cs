@@ -118,16 +118,24 @@ namespace MentalCaressCompiler {
 						builder.EndLoop();
 						break;
 					case AST.Block { Type: AST.BlockType.If } @if:
-						builder.If(vars[@if.Control]);
+						builder.IfAndZero(vars[@if.Control]);
+						foreach (var s in @if.Body) Build(s);
+						builder.EndIf();
+						break;
+					case AST.Block { Type: AST.BlockType.IfRelease } @if:
+						builder.IfRelease(vars[@if.Control]);
 						foreach (var s in @if.Body) Build(s);
 						builder.EndIf();
 						break;
 					case AST.Block { Type: AST.BlockType.IfNot } ifnot:
-						builder.AllocateAndCopy(out int _ifnot, vars[ifnot.Control], nameof(_ifnot));
-						builder.IfNot(_ifnot);
+						builder.IfNotAndZero(vars[ifnot.Control]);
 						foreach (var s in ifnot.Body) Build(s);
 						builder.EndIf();
-						builder.Release(_ifnot);
+						break;
+					case AST.Block { Type: AST.BlockType.IfNotRelease } ifnot:
+						builder.IfNotAndZero(vars[ifnot.Control]);
+						foreach (var s in ifnot.Body) Build(s);
+						builder.EndIf();
 						break;
 
 					default: throw new ($"No codegen for ast node ${ statement }");
