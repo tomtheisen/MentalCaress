@@ -3,7 +3,9 @@
 	public record Identifier(string Name) : Value;
 	public record NumberLiteral(byte Value) : Value;
 
-	public record Statement();
+	public record Statement() {
+        public string? SourceText { get; init; }
+    }
 	public record Declaration(Identifier Id, Value Value) : Statement;
 	public record OperateAssign(Identifier Target, Value A, char Operator, Value B) : Statement;
 	public record NotAssign(Identifier Target, Identifier Value) : Statement;

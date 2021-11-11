@@ -34,8 +34,7 @@ loop y2 {
     var show = 0
     show = not y2
     y2 -= 4
-    var _y2 = y2
-    ifnot release _y2 {
+    ifnot y2 {
         show += 1
     }
     show += y3

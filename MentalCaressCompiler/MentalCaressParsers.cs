@@ -16,6 +16,9 @@ namespace MentalCaressCompiler {
 			from w in Parse.Chars(' ', '\t').Many()
 			from nl in Parse.LineTerminator
 			select "";
+
+		static Parser<IOption<string>> LinePreview =>
+			Parse.AnyChar.Until(Parse.LineTerminator).Text().Preview();
 		
 		static Parser<AST.Identifier> Identifier => Parse.LetterOrDigit.Or(Parse.Char('_'))
 			.AtLeastOnce()
@@ -119,6 +122,7 @@ namespace MentalCaressCompiler {
 			select new AST.Comment(content);
 	
 		public static Parser<AST.Statement> Statement => 
+			from line in LinePreview
 			from s1 in Indent
 			from statement in AnyOf<AST.Statement>(
 				Declaration, 
@@ -132,7 +136,7 @@ namespace MentalCaressCompiler {
 				Block,
 				Comment)
 			from s3 in Terminator
-			select statement;
+			select statement with { SourceText = line.GetOrDefault() };
 		
 		public static Parser<string> BlankLines =>
 			Parse.Chars(" \t").Many().Then(_ => Parse.LineTerminator).Many().Select(_ => "");

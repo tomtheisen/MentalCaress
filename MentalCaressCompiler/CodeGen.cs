@@ -2,18 +2,30 @@
 using System.Collections.Generic;
 
 namespace MentalCaressCompiler {
+    public enum CommentVerbosity {
+		None,
+		Source,
+		SourceAndAllocationNames,
+		SourceAndCodeGen,
+    }
     public static class CodeGen {
-		public static string FromAST(IEnumerable<AST.Statement> statements, bool comments = false) {
-			ProgramBuilder builder = new() { GenerateComments = comments };
+		public static string FromAST(IEnumerable<AST.Statement> statements, CommentVerbosity comments = 0) {
+			ProgramBuilder builder = new();
 			Dictionary<AST.Identifier, int> vars = new();
 	
 			void Build(AST.Statement statement) {
+                if (statement.SourceText is string sourceText && comments >= CommentVerbosity.Source) {
+					builder.GenerateComments = true;
+					builder.Comment(sourceText);
+                }
+				builder.GenerateComments = comments >= CommentVerbosity.SourceAndCodeGen;
 				switch (statement) {
 					case AST.Comment comment:
-						builder.Comment(comment.Message);
+						// already included from the source line
 						break;
 
 					case AST.Declaration { Value: AST.NumberLiteral val } decl: {
+						builder.GenerateComments |= comments >= CommentVerbosity.SourceAndAllocationNames;
 						builder.Allocate(out int var, val.Value, decl.Id.Name);
 						if (vars.ContainsKey(decl.Id)) throw new ($"Duplicate declaration { decl.Id.Name }");
 						vars[decl.Id] = var;
