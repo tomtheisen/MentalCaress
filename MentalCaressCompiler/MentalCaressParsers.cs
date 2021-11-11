@@ -12,15 +12,9 @@ namespace MentalCaressCompiler {
 
 		static Parser<string> Indent => Parse.Chars(' ', '\t').Many().Text();
 	
-		static IResult<string> EOF(IInput input) => input.AtEnd 
-			? Result.Success("", input) 
-			: Result.Failure<string>(input, "not EOF", Enumerable.Empty<string>());
-		
-		static Parser<string> LineEnd => AnyOf(Parse.String("\n").Text(), Parse.String("\r\n").Text(), EOF);
-	
 		static Parser<string> Terminator => 
 			from w in Parse.Chars(' ', '\t').Many()
-			from nl in LineEnd
+			from nl in Parse.LineTerminator
 			select "";
 		
 		static Parser<AST.Identifier> Identifier => Parse.LetterOrDigit.Or(Parse.Char('_'))
@@ -94,12 +88,13 @@ namespace MentalCaressCompiler {
 	
 		public static Parser<AST.BlockType> BlockType 
 			=> AnyOf(
-				Parse.String("!ifnot").Select(_ => AST.BlockType.IfNotRelease),
-				Parse.String("!if").Select(_ => AST.BlockType.IfRelease),
-				Parse.String("ifnot").Select(_ => AST.BlockType.IfNot),
-				Parse.String("if").Select(_ => AST.BlockType.If),
-				Parse.String("loop").Select(_ => AST.BlockType.Loop)
-			);
+					Parse.String("!ifnot").Select(_ => AST.BlockType.IfNotRelease),
+					Parse.String("!if").Select(_ => AST.BlockType.IfRelease),
+					Parse.String("ifnot").Select(_ => AST.BlockType.IfNot),
+					Parse.String("if").Select(_ => AST.BlockType.If),
+					Parse.String("loop").Select(_ => AST.BlockType.Loop))
+				.Then<AST.BlockType, AST.BlockType>(bt => 
+					(input => Parse.LetterOrDigit.Not()(input).WasSuccessful ? Result.Success(bt, input) : Result.Failure<AST.BlockType>(input, "actually *did* match", Enumerable.Empty<string>())));
 		
 		public static Parser<AST.Block> Block => 
 			from type in BlockType
@@ -133,7 +128,7 @@ namespace MentalCaressCompiler {
 			select statement;
 		
 		public static Parser<string> BlankLines =>
-			Parse.Chars(" \t").Many().Then(_ => LineEnd).Many().Select(_ => "");
+			Parse.Chars(" \t").Many().Then(_ => Parse.LineTerminator).Many().Select(_ => "");
 		
 		public static Parser<IEnumerable<AST.Statement>> StatementList =>
 			Statement.Contained(BlankLines, BlankLines).Many();
