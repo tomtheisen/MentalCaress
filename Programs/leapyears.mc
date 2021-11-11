@@ -40,14 +40,19 @@ loop y2 {
     show += y3
     show += y4
     if release show {
-        var twelve = 12
-        loop twelve {
-            twelve -= 1
-            y1 += 4
-            y2 += 4
-            y3 += 4
-            y4 += 4
+        var eight = 8
+        loop eight {
+            eight -= 1
+            var six = 6
+            loop six {
+                y1 += 1
+                y2 += 1
+                y3 += 1
+                y4 += 1
+                six -= 1
+            }
         }
+        release eight
 
         write y1
         y2 += 4
@@ -56,15 +61,19 @@ loop y2 {
         write y3
         write y4
 
-        twelve = 10
-        write twelve
-        twelve += 2
-        loop twelve {
-            twelve -= 1
-            y1 -= 4
-            y2 -= 4
-            y3 -= 4
-            y4 -= 4
+        var eight = 10
+        write eight
+        eight -= 2
+        loop eight {
+            eight -= 1
+            var _six = 6
+            loop _six {
+                y1 -= 1
+                y2 -= 1
+                y3 -= 1
+                y4 -= 1
+                _six -= 1
+            }
         }
     }
 }

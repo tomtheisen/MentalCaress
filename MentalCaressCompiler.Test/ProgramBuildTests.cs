@@ -8,11 +8,26 @@ using Xunit;
 namespace MentalCaressCompiler.Test {
     public class ProgramBuildTests {
         [Fact]
-        public void BuilderTest1() {
-            ProgramBuilder builder = new();
-            builder.Allocate(out int x, 0, nameof(x));
-            builder.AllocateAndCopy(out int y, x, nameof(y));
-            builder.AllocateAndCopy(out int z, x, nameof(z));
+        public void ScopeTest() {
+            var mcast = MentalCaressParsers.Program.Parse(@"
+				var outer = 1
+				loop outer {
+					outer -= 1
+					var inner = 1
+					loop inner {
+						inner -= 1
+					}
+				}
+
+				outer = 1
+				loop outer {
+					outer -= 1
+					var inner = 1
+					loop inner {
+						inner -= 1
+					}
+				}");
+			var bf = CodeGen.FromAST(mcast);
         }
     }
 }
