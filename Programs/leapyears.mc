@@ -11,7 +11,7 @@ loop y2 {
     carry = not y4
     y4 = y4 + 2
     var _y4 = y4
-    !ifnot _y4 {
+    ifnot release _y4 {
         carry = carry + 1
     }
     y4 = y4 + 10
@@ -25,7 +25,7 @@ loop y2 {
             y3 = 0
             y2 = y2 + 1
             carry = y2 - 10
-            !ifnot carry {
+            ifnot release carry {
                 y2 = 0
                 y1 = y1 + 1
             }
@@ -36,12 +36,12 @@ loop y2 {
     show = not y2
     y2 = y2 - 4
     var _y2 = y2
-    !ifnot _y2 {
+    ifnot release _y2 {
         show = show + 1
     }
     show = show + y3
     show = show + y4
-    !if show {
+    if release show {
         var twelve = 12
         loop twelve {
             twelve = twelve - 1
