@@ -93,8 +93,7 @@ namespace MentalCaressCompiler {
 					Parse.String("ifnot").Select(_ => AST.BlockType.IfNot),
 					Parse.String("if").Select(_ => AST.BlockType.If),
 					Parse.String("loop").Select(_ => AST.BlockType.Loop))
-				.Then<AST.BlockType, AST.BlockType>(bt => 
-					(input => Parse.LetterOrDigit.Not()(input).WasSuccessful ? Result.Success(bt, input) : Result.Failure<AST.BlockType>(input, "actually *did* match", Enumerable.Empty<string>())));
+				.ThenNot(Parse.LetterOrDigit);
 		
 		public static Parser<AST.Block> Block => 
 			from type in BlockType

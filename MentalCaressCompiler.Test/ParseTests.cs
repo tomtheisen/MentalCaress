@@ -7,6 +7,12 @@ using System.Linq;
 namespace MentalCaressCompiler.Test {
     public class ParseTests {
         [Fact]
+        public void BlockTypeParseTest() {
+            var type = MentalCaressParsers.BlockType.Parse("ifnot");
+            Assert.Equal(AST.BlockType.IfNot, type);
+        }
+
+        [Fact]
         public void ActionParseTest() {
             var act = MentalCaressParsers.Action1.Parse("readnum x");
             var expected = new AST.Action1("readnum", new("x"));
