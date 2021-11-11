@@ -54,6 +54,13 @@ namespace MentalCaressCompiler {
 			from b in Value
 			select new AST.OperateAssign(target, a, op, b);
 
+		public static Parser<AST.OperateAssign> AugmentedAssign =>
+			from target in Identifier
+			from op in Parse.Chars("-+/*%")
+			from eq in Parse.Char('=')
+			from a in Value
+			select new AST.OperateAssign(target, target, op, a);
+
 		public static Parser<AST.NotAssign> NotAssign =>
 			from target in Identifier
 			from eq in Parse.Char('=')
@@ -116,7 +123,8 @@ namespace MentalCaressCompiler {
 			from statement in AnyOf<AST.Statement>(
 				Declaration, 
 				NotAssign,
-				OperateAssign, 
+				OperateAssign,
+				AugmentedAssign,
 				Copy, 
 				Action0, 
 				Action1, 

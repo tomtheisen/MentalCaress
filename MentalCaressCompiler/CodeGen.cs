@@ -146,11 +146,13 @@ namespace MentalCaressCompiler {
 						foreach (var s in @if.Body) Build(s);
 						builder.EndIf();
 						break;
-					case AST.Block { Type: AST.BlockType.IfNot } ifnot:
-						builder.IfNotAndZero(vars[ifnot.Control]);
+					case AST.Block { Type: AST.BlockType.IfNot } ifnot: {
+						builder.AllocateAndCopy(out int _control, vars[ifnot.Control], nameof(_control));
+						builder.IfNotRelease(_control);
 						foreach (var s in ifnot.Body) Build(s);
 						builder.EndIf();
 						break;
+					}
 					case AST.Block { Type: AST.BlockType.IfNotRelease } ifnot:
 						builder.IfNotRelease(vars[ifnot.Control]);
 						vars.Remove(ifnot.Control);
