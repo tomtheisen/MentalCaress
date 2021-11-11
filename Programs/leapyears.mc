@@ -66,13 +66,13 @@ loop y2 {
         eight -= 2
         loop eight {
             eight -= 1
-            var _six = 6
-            loop _six {
+            var six = 6
+            loop six {
                 y1 -= 1
                 y2 -= 1
                 y3 -= 1
                 y4 -= 1
-                _six -= 1
+                six -= 1
             }
         }
     }

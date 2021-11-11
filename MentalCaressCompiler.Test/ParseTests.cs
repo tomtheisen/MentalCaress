@@ -1,8 +1,6 @@
 using System;
 using Sprache;
 using Xunit;
-using MentalCaressCompiler;
-using System.Linq;
 
 namespace MentalCaressCompiler.Test {
     public class ParseTests {

@@ -1,8 +1,6 @@
 ﻿using BrainfuckRun;
 using Sprache;
 using System;
-using System.IO;
-using System.Linq;
 using Xunit;
 
 namespace MentalCaressCompiler.Test {
@@ -28,6 +26,7 @@ namespace MentalCaressCompiler.Test {
 					}
 				}");
 			var bf = CodeGen.FromAST(mcast);
+			Assert.NotNull(bf);
         }
     }
 }
