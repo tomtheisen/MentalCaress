@@ -177,6 +177,12 @@ namespace MentalCaressCompiler {
 							Build(ifnot.Body);
 							builder.EndIf();
 							break;
+						case AST.Repeat repeat:
+							builder.Allocate(out int times, repeat.Times, nameof(times));
+							builder.Loop(times).Decrement(times);
+							Build(repeat.Body);
+							builder.EndLoop().Release(times);
+							break;
 
 						default: throw new ($"No codegen for ast node ${ statement }");
 					}

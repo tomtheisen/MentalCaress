@@ -114,6 +114,16 @@ namespace MentalCaressCompiler {
 			from indent in Indent
 			from close in Parse.Char('}')
 			select new AST.Block(type, control, body.ToArray());
+
+		public static Parser<AST.Repeat> Repeat =>
+			from rp in Parse.String("repeat")
+			from times in NumberLiteral
+			from open in Parse.Char('{')
+			from t1 in Terminator
+			from body in StatementList
+			from indent in Indent
+			from close in Parse.Char('}')
+			select new AST.Repeat(times.Value, body.ToArray());
 	
 		public static Parser<AST.Comment> Comment =>
 			from s in Parse.Chars(" \t").Many()
@@ -134,6 +144,7 @@ namespace MentalCaressCompiler {
 				Action1, 
 				WriteText,
 				Block,
+				Repeat,
 				Comment)
 			from s3 in Terminator
 			select statement with { SourceText = line.GetOrDefault() };

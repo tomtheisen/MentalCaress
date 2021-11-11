@@ -18,4 +18,5 @@
 	
 	public enum BlockType { Loop, If, IfNot, IfRelease, IfNotRelease }
 	public record Block(BlockType Type, Identifier Control, Statement[] Body) : Statement;
+	public record Repeat(byte Times, Statement[] Body) : Statement;
 }

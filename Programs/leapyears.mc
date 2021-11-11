@@ -40,19 +40,14 @@ loop y2 {
     show += y3
     show += y4
     if release show {
-        var eight = 8
-        loop eight {
-            eight -= 1
-            var six = 6
-            loop six {
+        repeat 8 {
+            repeat 6 {
                 y1 += 1
                 y2 += 1
                 y3 += 1
                 y4 += 1
-                six -= 1
             }
         }
-        release eight
 
         write y1
         y2 += 4
