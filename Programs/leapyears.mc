@@ -6,28 +6,28 @@ var y4 = 0
 loop y2 {
     y2 += 4
 
-    y4 -= 8
-    var carry = 0
-    carry = not y4
-    y4 += 2
-    ifnot y4 {
-        carry += 1
-    }
-    y4 += 10
+    var y4_low = 0
+    y4_low = y4 - 8
 
-    # testing carry
-    if carry {
-        y4 -= 10
-        y3 += 1
-        carry = y3 - 10
-        ifnot carry {
-            y3 = 0
-            y2 += 1
-            carry = y2 - 10
-            ifnot release carry {
-                y2 = 0
-                y1 += 1
-            }
+    repeat 2 {
+        y4 += 2
+        ifnot y4_low {
+            y4 = 0
+            y3 += 1
+        }
+        y4_low += 2
+    }
+    release y4_low
+
+    var carry = 0
+    carry = y3 - 10
+    ifnot carry {
+        y3 = 0
+        y2 += 1
+        carry = y2 - 10
+        ifnot release carry {
+            y2 = 0
+            y1 += 1
         }
     }
 

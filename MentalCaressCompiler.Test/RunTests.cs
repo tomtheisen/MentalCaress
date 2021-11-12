@@ -41,5 +41,15 @@ namespace MentalCaressCompiler.Test {
             RunFileTest("leapyears.mc", expected);
         }
 
+        [Fact]
+        public void Leap2Test() {
+            string expected = string.Concat( 
+                from year in Enumerable.Range(1800, 601)
+                where year % 4 == 0
+                where year % 400 == 0 || year % 100 > 0
+                select year + "\n");
+            RunFileTest("leapyears2.mc", expected);
+        }
+
     }
 }

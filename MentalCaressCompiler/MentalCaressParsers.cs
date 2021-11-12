@@ -27,10 +27,13 @@ namespace MentalCaressCompiler {
 			.Select(lod => new AST.Identifier(lod));
 		
 		static Parser<AST.NumberLiteral> NumberLiteral => 
-			from digits in Parse.Number.Contained(Parse.Char(' ').Many(), Parse.Char(' ').Many())
+			from s1 in Parse.Char(' ').Many()
+			from minus in Parse.Char('-').Optional()
+			from digits in Parse.Number
+			from s2 in Parse.Char(' ').Many()
 			let val = int.Parse(digits)
 			where val <= byte.MaxValue
-			select new AST.NumberLiteral((byte)val);
+			select new AST.NumberLiteral((byte)(minus.IsDefined ? -val : val));
 		
 		static Parser<AST.NumberLiteral> CharLiteral =>
 			from s1 in Parse.Char(' ').Many()
