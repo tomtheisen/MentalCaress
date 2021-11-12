@@ -61,13 +61,11 @@ loop y2 {
         eight -= 2
         loop eight {
             eight -= 1
-            var six = 6
-            loop six {
+            repeat 6 {
                 y1 -= 1
                 y2 -= 1
                 y3 -= 1
                 y4 -= 1
-                six -= 1
             }
         }
     }
