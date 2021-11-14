@@ -51,5 +51,15 @@ namespace MentalCaressCompiler.Test {
             RunFileTest("leapyears2.mc", expected);
         }
 
+        [Fact]
+        public void Primes()
+        {
+            string expected = string.Concat(
+                from p in Enumerable.Range(2, 98)
+                let d = Enumerable.Range(2, p - 2)
+                where d.All(d_ => p % d_ > 0)
+                select p + "\n");
+            RunFileTest("primes.mc", expected);
+        }
     }
 }

@@ -189,7 +189,7 @@ namespace MentalCaressCompiler {
             MoveTo(var);
             if (times <= 128) Do(new string('+', times));
             else Do(new string('-', 256 - times));
-            if (ControlBlocks.Current.State[var] is KnownValue known) {
+            if (var >= 0 && ControlBlocks.Current.State[var] is KnownValue known) {
                 ControlBlocks.Current.State[var] = new KnownValue((byte)(known.Value + times));
             }
             return this;
@@ -207,14 +207,16 @@ namespace MentalCaressCompiler {
 
         /// <summary>acc += operand; operand = 0;</summary>
         public ProgramBuilder AddAndZero(int acc, int operand) {
-            TapeState st1 = ControlBlocks.Current.State[acc], st2 = ControlBlocks.Current.State[operand];
+            TapeState st1 = acc >= 0 ? ControlBlocks.Current.State[acc] : new UnknownValue()
+                , st2 = operand >= 0 ? ControlBlocks.Current.State[operand] : new UnknownValue();
             using(Loop(operand)) {
                 Decrement(operand);
                 Increment(acc);
             }
-            ControlBlocks.Current.State[acc] = st1 is KnownValue k1 && st2 is KnownValue k2
-                ? new KnownValue((byte)(k1.Value + k2.Value))
-                : new UnknownValue();
+            if (acc >= 0) ControlBlocks.Current.State[acc] = 
+                st1 is KnownValue k1 && st2 is KnownValue k2
+                    ? new KnownValue((byte)(k1.Value + k2.Value))
+                    : new UnknownValue();
             return this;
         }
     

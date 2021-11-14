@@ -144,6 +144,13 @@ namespace MentalCaressCompiler {
                                 builder.Release(_numerator, _denominator);
                                 break;
                             }
+                            case AST.OperateAssign { Operator: '%', B: AST.Identifier b } mod
+                                when mod.Target == mod.A: {
+                                builder.AllocateAndCopy(out int _a, vars[mod.Target], nameof(_a));
+                                builder.Mod(vars[mod.Target], _a, vars[b]);
+                                builder.Release(_a);
+                                break;
+                            }
                             case AST.Action0 { Type: "writeline" }:
                                 builder.NewLine();
                                 break;
@@ -154,6 +161,12 @@ namespace MentalCaressCompiler {
                             case AST.Action1 { Type: "write" } op:
                                 builder.MoveTo(vars[op.Id]).Do('.');
                                 break;
+                            case AST.Action1 { Type: "writenum" } op: {
+                                builder.AllocateAndCopy(out int towrite, vars[op.Id], nameof(towrite));
+                                builder.WriteNumber(towrite);
+                                builder.Release(towrite);
+                                break;
+                            }
                             case AST.Action1 { Type: "readnum" } op:
                                 builder.ReadNumber(vars[op.Id]);
                                 break;
