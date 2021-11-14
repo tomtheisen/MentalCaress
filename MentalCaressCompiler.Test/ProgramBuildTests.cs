@@ -28,5 +28,25 @@ namespace MentalCaressCompiler.Test {
 			var bf = CodeGen.FromAST(mcast);
 			Assert.NotNull(bf);
         }
+
+		[Fact]
+		public void Scope2Test() {
+			var mcast = MentalCaressParsers.Program.Parse(@"
+                var y3 = 0
+                loop y3 {
+                    var carry = 0
+                    if carry {
+						release carry
+                    }
+
+                    var show = 0
+                    if release show {
+                        var o=48
+                        release o
+                    }
+                }");
+			var bf = CodeGen.FromAST(mcast);
+			Assert.NotNull(bf);
+        }
     }
 }

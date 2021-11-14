@@ -5,6 +5,7 @@
 
 	public record Statement() {
         public string? SourceText { get; init; }
+        public Sprache.Position? Position { get; init; }
     }
 	public record Declaration(Identifier Id, Value Value) : Statement;
 	public record OperateAssign(Identifier Target, Value A, char Operator, Value B) : Statement;

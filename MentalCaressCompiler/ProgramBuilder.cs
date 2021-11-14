@@ -12,7 +12,11 @@ namespace MentalCaressCompiler {
         const int MemorySize = 256;
 
         private enum BlockType { Top, Loop, If }
-        private record Block(BlockType Type, int ControlVariable, List<int> LocalVariables, TapeState[] State);
+        private record Block(
+            BlockType Type, 
+            int ControlVariable, 
+            List<int> LocalVariables, // for automatic release during block close
+            TapeState[] State);
 
         private class BlockStack {
             private readonly Stack<Block> ControlBlocks = new();
@@ -35,6 +39,13 @@ namespace MentalCaressCompiler {
             public Block Pop() => ControlBlocks.Pop();
         
             public Block Current => ControlBlocks.Peek();
+
+            public void RemoveVariable(int var) {
+                foreach (var scope in ControlBlocks) {
+                    if (scope.LocalVariables.Remove(var)) return;
+                }
+                throw new ($"Couldn't remove variable {var}");
+            }
 		
 		    public int Depth => ControlBlocks.Count;
         }
@@ -94,7 +105,7 @@ namespace MentalCaressCompiler {
                 ControlBlocks.Current.State[i] = new UnknownValue();
             }
             MoveTo(condition).Do(']');
-		    Release(locals.ToArray());
+            foreach (var loc in locals) Allocated[loc] = false;
             ControlBlocks.Current.State[condition] = new KnownValue(0);
             return this;
         }
@@ -123,7 +134,7 @@ namespace MentalCaressCompiler {
                 }
             }
             MoveTo(condition).Zero(condition).Do(']');
-		    Release(locals.ToArray());
+            foreach (var loc in locals) Allocated[loc] = false;
             ControlBlocks.Current.State[condition] = new KnownValue(0);
             return this;
         }
@@ -148,7 +159,7 @@ namespace MentalCaressCompiler {
             if (!Allocated[var]) throw new ("Can't release what was not yours");
             if (Named[var]) Comment($"[{ var }]: ");
             Named[var] = Allocated[var] = false;
-		    ControlBlocks.Current.LocalVariables.Remove(var);
+		    ControlBlocks.RemoveVariable(var);
             return this;
         }
     

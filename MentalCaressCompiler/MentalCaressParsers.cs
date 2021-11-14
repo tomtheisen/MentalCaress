@@ -19,6 +19,9 @@ namespace MentalCaressCompiler {
 
 		static Parser<IOption<string>> LinePreview =>
 			Parse.AnyChar.Until(Parse.LineTerminator).Text().Preview();
+
+		static Parser<Position> CurrentPosition =>
+			input => Result.Success(Position.FromInput(input), input);
 		
 		static Parser<AST.Identifier> Identifier => Parse.LetterOrDigit.Or(Parse.Char('_'))
 			.AtLeastOnce()
@@ -137,6 +140,7 @@ namespace MentalCaressCompiler {
 		public static Parser<AST.Statement> Statement => 
 			from line in LinePreview
 			from s1 in Indent
+			from pos in CurrentPosition
 			from statement in AnyOf<AST.Statement>(
 				Declaration, 
 				NotAssign,
@@ -150,7 +154,7 @@ namespace MentalCaressCompiler {
 				Repeat,
 				Comment)
 			from s3 in Terminator
-			select statement with { SourceText = line.GetOrDefault() };
+			select statement with { SourceText = line.GetOrDefault(), Position = pos };
 		
 		public static Parser<string> BlankLines =>
 			Parse.Chars(" \t").Many().Then(_ => Parse.LineTerminator).Many().Select(_ => "");
