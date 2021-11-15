@@ -290,20 +290,12 @@ namespace MentalCaressCompiler {
         /// <summary>target = operand == 0 ? 1 : 0; operand = 0;</summary>
         public ProgramBuilder Not(int target, int operand) {
             Zero(target).Increment(target);
-            using(IfAndZero(operand)) {
-                Zero(target);
+            using (Loop(operand)) {
+                Decrement(operand).Zero(target);
             }
             return this;
         }
 
-	    /// <summary>if (condition == 0) { ... } condition = 0; </summary>
-	    public ProgramBuilder IfNotAndZero(int condition) {
-		    Allocate(out int not, 0);
-		    Not(not, condition);
-		    IfAndZero(not);
-		    return this;
-	    }
-    
 	    /// <summary>if (condition == 0) { ... } condition = 0; </summary>
 	    public ProgramBuilder IfNotRelease(int condition) {
 		    Allocate(out int not, 0);

@@ -161,6 +161,13 @@ namespace MentalCaressCompiler {
                                 builder.Release(_a, _b);
                                 break;
                             }
+                            case AST.DivModAssign { A: AST.Identifier a, B: AST.Identifier b } divmod
+                                when divmod.Div != b && divmod.Mod != b: {
+                                builder.AllocateAndCopy(out int _a, vars[a], nameof(_a));
+                                builder.DivMod(vars[divmod.Div], vars[divmod.Mod], _a, vars[b]);
+                                builder.Release(_a);
+                                break;
+                            }
                             case AST.Action0 { Type: "writeline" }:
                                 builder.NewLine();
                                 break;
@@ -179,6 +186,9 @@ namespace MentalCaressCompiler {
                             }
                             case AST.Action1 { Type: "readnum" } op:
                                 builder.ReadNumber(vars[op.Id]);
+                                break;
+                            case AST.Action1 { Type: "read" } op:
+                                builder.MoveTo(vars[op.Id]).Do(',');
                                 break;
                             case AST.Action1 { Type: "release" } op:
                                 builder.Release(vars[op.Id]);
