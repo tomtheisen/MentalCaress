@@ -9,6 +9,7 @@
     }
 	public record Declaration(Identifier Id, Value Value) : Statement;
 	public record OperateAssign(Identifier Target, Value A, char Operator, Value B) : Statement;
+    public record DivModAssign(Identifier Div, Identifier Mod, Value A, Value B) : Statement;
 	public record NotAssign(Identifier Target, Identifier Value) : Statement;
 	public record Copy(Identifier Target, Value Source) : Statement;
 	public record Comment(string Message) : Statement;

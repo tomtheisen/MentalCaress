@@ -48,11 +48,18 @@ namespace MentalCaressCompiler {
 		
 		static Parser<AST.Value> Value => AnyOf<AST.Value>(Literal, Identifier);
 	
+        static Parser<AST.Value> EqualValueOrZero =>
+            (
+                from eq in Parse.Char('=')
+                from val in Value
+                select val
+            ).Optional()
+            .Select(o => o.GetOrElse(new AST.NumberLiteral(0)));
+
 		public static Parser<AST.Declaration> Declaration =>
 			from v in Parse.String("var")
 			from id in Identifier
-			from eq in Parse.Char('=')
-			from val in Value
+			from val in EqualValueOrZero
 			select new AST.Declaration(id, val);
 		
 		public static Parser<AST.OperateAssign> OperateAssign =>
@@ -63,7 +70,18 @@ namespace MentalCaressCompiler {
 			from b in Value
 			select new AST.OperateAssign(target, a, op, b);
 
-		public static Parser<AST.OperateAssign> AugmentedAssign =>
+        public static Parser<AST.DivModAssign> DivModAssign =>
+            from div in Identifier
+            from comma in Parse.Char(',')
+            from mod in Identifier
+            from eq in Parse.Char('=')
+            from a in Value
+            from dm in Parse.String("divmod")
+            from b in Value
+            select new AST.DivModAssign(div, mod, a, b);
+
+
+        public static Parser<AST.OperateAssign> AugmentedAssign =>
 			from target in Identifier
 			from op in Parse.Chars("-+/*%")
 			from eq in Parse.Char('=')
@@ -145,6 +163,7 @@ namespace MentalCaressCompiler {
 				Declaration, 
 				NotAssign,
 				OperateAssign,
+                DivModAssign,
 				AugmentedAssign,
 				Copy, 
 				Action0, 

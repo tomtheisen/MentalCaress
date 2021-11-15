@@ -151,6 +151,16 @@ namespace MentalCaressCompiler {
                                 builder.Release(_a);
                                 break;
                             }
+                            case AST.DivModAssign divmod when divmod.Div == divmod.Mod:
+                                throw new ("divmod: div and mod targets must be different.");
+                            case AST.DivModAssign { A: AST.Identifier a, B: AST.NumberLiteral b } divmod
+                                when divmod.Div != b && divmod.Mod != b: {
+                                builder.AllocateAndCopy(out int _a, vars[a], nameof(_a));
+                                builder.Allocate(out int _b, b.Value, nameof(_b));
+                                builder.DivMod(vars[divmod.Div], vars[divmod.Mod], _a, _b);
+                                builder.Release(_a, _b);
+                                break;
+                            }
                             case AST.Action0 { Type: "writeline" }:
                                 builder.NewLine();
                                 break;

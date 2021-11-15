@@ -18,7 +18,21 @@ loop n {
 	release d
 
 	if release prime {
-		writenum p
+		var tens
+		var ones
+		tens, ones = p divmod 10
+		if tens {
+			repeat 6 {
+				tens += 8
+			}
+			write tens
+			release tens
+		}
+		repeat 6 {
+			ones += 8
+		}
+		write ones
+		release ones
 		writeline
 		n -= 1
 	}
